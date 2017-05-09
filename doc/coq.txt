@@ -1,0 +1,196 @@
+*coq.txt*  Syntax support and interactive development with Coq
+                                                vim:ft=help:tw=78:ts=8:sw=8:et
+
+                ___                         __   ___       ~
+               / __|___  __ _    __ _ _  _  \ \ / (_)_ __  ~
+              | (__/ _ \/ _` |__/ _` | || |__\ V /| | '  \ ~
+               \___\___/\__, |  \__,_|\_,_|   \_/ |_|_|_|_|~
+                           |_|                             ~
+
+=============================================================================
+Contents
+
+        1. Introduction .............................. |coq-intro|
+        2. Editing Coq files ......................... |coq-editing|
+        3. Interactive theorem proving ............... |coq-ide|
+            3.1. Commands ............................ |coq-commands|
+            3.2. Key mappings ........................ |coq-mappings|
+        4. Configuration ............................. |coq-config|
+        5. Contributing .............................. |coq-contributing|
+        6. Credits ................................... |coq-credits|
+
+=============================================================================
+1. Introduction                                                 *coq-intro*
+
+This plugin provides a environment for working with the Coq theorem prover.
+It provides |filetype| support for editing Coq source files and a mode for
+interactive proof development, in the style of the standard Coq IDE.
+
+The interactive mode requires Vim version 8 and Coq version 8.6.
+
+
+=============================================================================
+2. Editing Coq files                                            *coq-editing*
+
+                                                                *coq-syntax*
+Coq-au-Vim does not provide syntax highlighting or indent support for Coq
+files because it can be found in other packages. I recommend using the scripts
+originally written by Vincent Aravantinos and packaged by Jeremy Voorhis:
+
+        https://github.com/jvoorhis/coq.vim
+
+This package only provides Coq-aware motions and folding.
+
+                                                                *coq-motions*
+Standard motions are adapted for Coq files: a sentence is interpreted in the
+sense of Coq, so that standard key mappings work as expected.
+
+                                                                *coq-(*
+(               [count] sentences backward.
+                                                                *coq-)*
+)               [count] sentences forward.
+
+                                                                *coq-text-object*
+The following motions override the default ones for text selection, using
+definitions adapted to Coq source files.
+
+                                                                *coq-v_as*
+as              "a sentence", select the current sentence including the
+                following whitespace. Visual characterwise mode.
+                                                                *coq-v_is*
+is              "inner sentence", select the current sentence excluding
+                surrounding whitespace. Visual characterwise mode.
+
+                                                                *coq-folding*
+Coq-au-Vim provides a folding function for Coq files that has the following
+behaviour:
+
+        all proofs are marked as folds (from "Proof." to the matching "Qed."),
+
+        all section headers (in the sense of coqdoc, i.e. following the coqdoc
+        markup conventions for comments) are folds at level 1, so that a
+        completely folded document with such sections appears as a table of
+        contents.
+
+The plugin defines the 'foldexpr' and 'foldtext' options but does not set
+'foldmethod' to "expr". This feature can be activated by simply saying
+
+        setlocal foldmethod=expr
+
+in a Coq buffer (or as an |autocommand|).
+
+
+=============================================================================
+3. Interactive theorem proving                                  *coq-ide*
+
+The following commands and key bindings provide an interactive proving
+environment using the Coq top-level. The way it works is directly inspired by
+the standard Coq IDE.
+
+Each buffer can have its own interactive session. Since a session uses a
+particular window layout for interaction, running several sessions in parallel
+works best with one |tab-page| per session.
+
+-----------------------------------------------------------------------------
+3.1. Commands                                                   *coq-commands*
+
+Only |:CoqStart| is automatically defined in Coq buffers, the other commands
+are defined when starting a session and undefined when closing a session.
+
+                                                                *:CoqStart*
+:CoqStart       Start a Coq interpreter associated with the current buffer and
+                setup windows for interaction: one window for the current
+                proof goals and one window for informational messages.
+                                                                *:CoqQuit*
+:CoqQuit        Stop the Coq interpreter associated with the current buffer
+                and close the goal and information windows.
+
+                                                                *:CoqNext*
+:CoqNext        Send the next sentence to Coq and check it.
+                                                                *:CoqRewind*
+:CoqRewind      Rewind by one sentence.
+                                                                *:CoqToCursor*
+:CoqToCursor    Check sentences or rewind, so that the last sentence before
+                the cursor is checked.
+
+
+-----------------------------------------------------------------------------
+3.2. Key mappings                                               *coq-mappings*
+
+The following key mappings are defined locally for a Coq buffers when the
+|:CoqStart| command is called and removed when the |:CoqQuit| command is
+called. They apply in all modes.
+
+                                                                *coq-<C-Down>*
+<C-Down>        Check the next sentence, alias for |:CoqNext|.
+                                                                *coq-<C-Up>*
+<C-Up>          Rewind by one sentence, alias for |:CoqRewind|.
+                                                                *coq-<C-Right>*
+<C-Right>       Check or rewind up to the position of the cursor, alias for
+                |:CoqToCursor|.
+
+Interaction with the Coq top-level is asynchronous, so you can continue using
+Vim while Coq is processing sentences.
+
+However, editing in a previously checked zone currently does not rewind
+automatically.
+
+
+=============================================================================
+4. Configuration                                                *coq-config*
+
+The interactive proof mode currently has no configuration options, except for
+enabling debugging, see |coq-debugging| for details.
+
+Folding can be activated by setting 'foldmethod' to expr, see |coq-folding|.
+
+The Coq highlight groups used for feedback from the Coq top-level are the
+following:
+                                                                *hl-CoqSent*
+CoqSent         the region that was sent, before it is accepted
+                                                                *hl-CoqAdded*
+CoqAdded        regions that have been sent and accepted
+                                                                *hl-CoqChecked*
+CoqChecked      regions that have been successfully processed
+                                                                *hl-CoqError*
+CoqError        errors detected by Coq
+
+By default CoqError is linked to Error and the other have a red-ish,
+yellow-ish or green-ish background.
+
+
+=============================================================================
+5. Contributing                                                 *coq-contributing*
+
+Any feedback is welcome, in the form of suggestions, bug reports or patches.
+The public Git repository of the project can be found at
+
+        https://git.framasoft.org/manu/coq-au-vim
+
+                                                                *coq-debugging*
+The Coq interaction plugin can be run in debugging mode by setting the
+*b:coq_debug* variable. In this case, an extra window will be open on startup
+and debugging messages will be appended there. The *b:coq_debug* variable is
+expected to be string, the presence of each letter below will trigger the
+display of a particular kind of information
+
+letter  messages written in the debug window~
+  e     protocol errors (unrecognized messages from coqtop)
+  f     feedback items
+  j     job management (starting and stopping coqtop)
+  m     parsed messages from coqtop
+  r     requests to coqtop and answers
+  t     put a timestamp in front of each line in the log
+  x     raw XML messages exchanged with coqtop
+
+
+=============================================================================
+6. Credits                                                      *coq-credits*
+
+The plugin was written from scratch for Vim 8 and Coq 8.6 but with direct
+inspiration from Coquille by Thomas Refis <https://github.com/trefis>:
+
+        https://github.com/the-lambda-church/coquille
+
+The name was taken from a comment on Reddit by someone wondering why no one
+had yet used this name for a Vim plugin for Coq support. Now the name is used!

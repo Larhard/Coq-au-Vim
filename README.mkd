@@ -1,0 +1,61 @@
+Coq-au-Vim
+==========
+
+Coq-au-Vim is a Vim plugin for working with the [Coq](https://coq.inria.fr/)
+proof assistant. It provides motions, folding and communication with Coq for
+interactive proof development.
+
+
+Requirements
+------------
+
+Coq-au-Vim requires
+
+- Vim version 8
+- Coq version 8.6
+
+Prior versions of Vim will not be supported because version 8 is the one that
+introduces asynchronous communication with external tools. For older versions
+of Vim, use [Coquille](https://github.com/the-lambda-church/coquille), which
+works well with Coq up to version 8.5.
+
+
+Installation
+------------
+
+This repository is directly usable as a plugin using the package system of
+Vim 8. You can install it by cloning it as a package subdirectory, by doing
+
+    mkdir -p ~/.vim/pack/coq/start
+    cd ~/.vim/pack/coq/start
+    git clone https://manu@framagit.org/manu/coq-au-vim.git
+
+This assumes that your base Vim directory is `~/.vim` and puts the plugin in a
+package named `coq`, but any other package name can be used.
+
+Run the following Vim command to register the help file:
+
+    :helptags ALL
+
+Syntax highlighting and indent scripts are not included, I recommend using
+those by Vincent Aravantinos and packaged by Jeremy Voorhis, by doing:
+
+    cd ~/.vim/pack/coq/start
+    git clone https://github.com/jvoorhis/coq.vim
+
+
+Usage
+-----
+
+Full documentation is included with the plugin, say `:help coq.txt` from
+within Vim to display the help file. For interaction with Coq, the following
+commands are provided:
+
+- `:CoqStart` starts an interactive session and defines the other commands,
+- `:CoqQuit` ends the current interactive session,
+- `:CoqNext` sends the next sentence to Coq,
+- `:CoqRewind` rewinds by one sentence,
+- `:CoqToCursor` sends or rewinds up to the current cursor position.
+
+Key mappings compatible with CoqIDE are installed by the `:CoqStart`
+command.
