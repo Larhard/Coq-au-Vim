@@ -19,7 +19,7 @@ function! s:byte_pos (ref, bytes) abort
   for byte in a:bytes
     let byte -= byte_ref
     while byte >= strlen(line)
-      let byte += strlen(line) + nl_size
+      let byte -= strlen(line) + nl_size
       let byte_ref += strlen(line) + nl_size
       let l += 1
       let c = 1
@@ -786,6 +786,7 @@ function s:coq.call_add (range, edit_id, state_id, verbose, return, dict) abort
   call self.log('r', "call", "Add",
     \ a:range, a:edit_id, a:state_id, a:verbose, text)
   let self.last_pos = s
+  let a:dict.range = a:range
   call self.call('Add',
     \ ['pair', {},
     \   ['pair', {},
@@ -806,7 +807,7 @@ function s:coq.call_add (range, edit_id, state_id, verbose, return, dict) abort
     \         ['state_id', {'val': '$next_state_id'}]],
     \       {'closing': v:true}] ],
     \     ['string', {}, '*message']]]],
-    \ {'range': a:range, 'parent_id': a:state_id}])
+    \ {'parent_id': a:state_id}])
   call self.hl_sent.add(a:range)
 endfunction
 
@@ -1249,7 +1250,8 @@ endfunction
 
 function s:coq.send_next_return (d) abort
   if !empty(a:d.message)
-    call self.infos.write("***" . string(a:d.message))
+    let a:d.level = a:d.success ? 'info' : 'error'
+    call self.print_message(a:d, a:d.range[0])
   endif
   if a:d.success
     call self.show_goals()
