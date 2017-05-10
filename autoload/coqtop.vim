@@ -950,6 +950,19 @@ function s:coq.call_query (text, state_id, return, dict) abort
     \ [[['string', {}, '*message']], {}])
 endfunction
 
+" quit() {{{3
+" -> {}
+"
+" Terminate the Coq session.
+
+function s:coq.call_quit (return, dict) abort
+  call self.log('r', "call", "Quit")
+  call self.call('Quit',
+    \ ['unit', {}],
+    \ a:return, a:dict,
+    \ [[['unit', {}]], {}])
+endfunction
+
 
 " == Handling feedback == {{{2
 
@@ -1137,7 +1150,14 @@ endfunction
 
 " Terminate a session and close the windows.
 
-function s:coq.close () abort
+function s:coq.quit () abort
+  call self.call_quit(self.quit_return, {})
+endfunction
+
+function s:coq.quit_return (d) abort
+  if !a:d.success
+    return
+  endif
   call self.stop_job()
   call self.goals.close()
   call self.infos.close()
@@ -1148,6 +1168,7 @@ function s:coq.close () abort
   call self.hl_sent.clear()
   call self.hl_checked.clear()
   call self.hl_error.clear()
+  call coqtop#Quit()
 endfunction
 
 " Log function when debugging.
@@ -1379,7 +1400,7 @@ endfunction
 
 function! coqtop#Start () abort
   let b:coq = s:coq.create()
-  command! -buffer CoqQuit :call coqtop#Quit()
+  command! -buffer CoqQuit :call b:coq.quit()
   command! -buffer CoqNext :call b:coq.send_next()
   command! -buffer CoqRewind :call b:coq.rewind()
   command! -buffer CoqToCursor :call b:coq.to_cursor()
@@ -1418,7 +1439,6 @@ function! coqtop#Quit () abort
   iunmap <buffer> <C-Right>
   iunmap <buffer> <C-Up>
 
-  call b:coq.close()
   unlet b:coq
 endfunction
 
