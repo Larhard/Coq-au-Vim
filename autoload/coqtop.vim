@@ -939,6 +939,10 @@ endfunction
 " == Handling feedback == {{{2
 
 function s:coq.feedback(state_id, kind, content) abort
+  if !has_key(self.states, a:state_id)
+    return self.log('e', 'feedback', 'feedback for unknown state', a:state_id)
+  endif
+
   let r = s:match_first([a:kind, a:content], [
     \ [['processed', []], {}],
     \ [['complete', []], {}],
@@ -969,18 +973,14 @@ function s:coq.feedback(state_id, kind, content) abort
   elseif a:kind ==# 'message'
     let r = s:match(a:content, [['message', {},
       \ ['message_level', {'val': '$level'}],
-      \ ['option', {'val': '$option'}, '*loc'],
+      \ ['?',
+      \   [['option', {'val': 'none'}], {}],
+      \   [['option', {'val': 'some'},
+      \     ['loc', {'start': '$start', 'stop': '$end'}]], {}]],
       \ ['richpp', {}, '$message']]])
     if type(r) ==# v:t_none
       return self.protocol_error("feedback message", a:content)
     endif
-    if r.option ==# 'some'
-      " r.loc has the shape [['loc', {'start': _, 'stop': _}]]
-      let r.start = r.loc[0][1].start
-      let r.end = r.loc[0][1].stop
-    endif
-    unlet r.option
-    unlet r.loc
     call self.log('f', 'message', a:state_id, r)
     call add(self.states[a:state_id].messages, r)
 
