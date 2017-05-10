@@ -12,7 +12,7 @@
 
 function! s:byte_pos (ref, bytes) abort
   let [l, c] = a:ref
-  let nl_size = &fileformat == 'dos' ? 2 : 1
+  let nl_size = (&fileformat ==# 'dos' ? 2 : 1)
   let pos = []
   let byte_ref = 0
   let line = strcharpart(getline(l), c - 1)
@@ -63,7 +63,7 @@ endfunction
 " Test if a given position is strictly before another one.
 
 function! s:pos_lt (p, q) abort
-  return a:p[0] < a:q[0] || (a:p[0] == a:q[0] && a:p[1] < a:q[1])
+  return a:p[0] < a:q[0] || (a:p[0] ==# a:q[0] && a:p[1] < a:q[1])
 endfunction
 
 
@@ -123,7 +123,7 @@ endfunction
 function s:highlighter.add (range) abort
   let [s, e] = a:range
 
-  if e == [1, 0]
+  if e ==# [1, 0]
     " The fake initial range is ignored.
     return
   endif
@@ -161,7 +161,7 @@ endfunction
 function s:highlighter.remove (range) abort
   let [s, e] = a:range
 
-  if e == [1, 0]
+  if e ==# [1, 0]
     " The fake initial range is ignored.
     return
   endif
@@ -235,9 +235,9 @@ let s:entity2char = {
 \ 'gt': '>' }
 
 function! s:entity_chr (name) abort
-  if a:name[0] != '#'
+  if a:name[0] !=# '#'
     return get(s:entity2char, a:name, '&' . a:name . ';')
-  elseif a:name[1] == 'x'
+  elseif a:name[1] ==# 'x'
     return nr2char('0' . a:name[1:])
   else
     return nr2char(a:name[1:])
@@ -254,7 +254,7 @@ endfunction
 function! s:xml_format (items) abort
   let output = ''
   for item in a:items
-    if type(item) != v:t_list
+    if type(item) !=# v:t_list
       let output .= s:entity_escape(item)
       continue
     endif
@@ -296,7 +296,7 @@ function! s:xml_parse (xml, stack) abort
     " Find the next tag.
 
     let tag_pos = stridx(a:xml, '<', pos)
-    if tag_pos == -1
+    if tag_pos ==# -1
       let tag_pos = len
     endif
 
@@ -310,14 +310,14 @@ function! s:xml_parse (xml, stack) abort
         call add(a:stack[-1], string)
       endif
     endif
-    if tag_pos == len
+    if tag_pos ==# len
       break
     endif
 
     " Find the tag name.
 
     let tag_pos += 1
-    if strpart(a:xml, tag_pos, 1) == '/'
+    if strpart(a:xml, tag_pos, 1) ==# '/'
       let opening = v:false
       let closing = v:true
       let tag_pos += 1
@@ -337,18 +337,18 @@ function! s:xml_parse (xml, stack) abort
 
     while pos < len
       let pos = match(a:xml, '[^ ]', pos)
-      if pos == -1
+      if pos ==# -1
         echo "Open tag at position " . pos
-        let pos == len
+        let pos = len
       endif
-      if strpart(a:xml, pos, 1) == '>'
+      if strpart(a:xml, pos, 1) ==# '>'
         let pos += 1
         break
       endif
-      if strpart(a:xml, pos, 1) == '/'
+      if strpart(a:xml, pos, 1) ==# '/'
         let closing = v:true
         let pos = stridx(a:xml, '>', pos + 1)
-        if pos == -1
+        if pos ==# -1
           echo "Unterminated standalone tag"
           let pos = len
         else
@@ -357,17 +357,17 @@ function! s:xml_parse (xml, stack) abort
         break
       endif
       let end_pos = match(a:xml, '[=>/]', pos)
-      if end_pos == -1
+      if end_pos ==# -1
         echo "Unterminated tag"
         let pos = end_pos
         break
       endif
       let key = strpart(a:xml, pos, end_pos - pos)
-      if strpart(a:xml, end_pos, 1) == '='
-        if strpart(a:xml, end_pos + 1, 1) == '"'
+      if strpart(a:xml, end_pos, 1) ==# '='
+        if strpart(a:xml, end_pos + 1, 1) ==# '"'
           let pos = end_pos + 2
           let end_pos = stridx(a:xml, '"', pos)
-          if end_pos == -1
+          if end_pos ==# -1
             echo "Unterminated string at position " . pos
             let end_pos = len
           endif
@@ -377,7 +377,7 @@ function! s:xml_parse (xml, stack) abort
         else
           let pos = end_pos + 1
           let end_pos = match(a:xml, '[ >]', pos)
-          if end_pos == -1
+          if end_pos ==# -1
             let end_pos = len
           endif
           let attr[key] =
@@ -398,7 +398,7 @@ function! s:xml_parse (xml, stack) abort
 
     if closing
       let top = remove(a:stack, -1)
-      if top[0] != tag
+      if top[0] !=# tag
         echo "Invalid closing tag at position " . tag_pos
           \ . " (expected " . top[0] . ", got " . tag . ")"
       endif
@@ -439,11 +439,11 @@ endfunction
 function! s:match (value, pattern) abort
   " String patterns.
 
-  if type(a:pattern) == v:t_string
-    if a:pattern[0] == '$'
+  if type(a:pattern) ==# v:t_string
+    if a:pattern[0] ==# '$'
       " The pattern is a key.
       return {a:pattern[1:]: a:value}
-    elseif type(a:value) == v:t_string && a:value == a:pattern
+    elseif type(a:value) ==# v:t_string && a:value ==# a:pattern
       " The pattern is an explicit string, the value matches.
       return {}
     else
@@ -454,26 +454,26 @@ function! s:match (value, pattern) abort
 
   " Choice patterns
 
-  if type(a:pattern) == v:t_list && !empty(a:pattern)
-  \ && type(a:pattern[0]) == v:t_string && a:pattern[0] == '?'
+  if type(a:pattern) ==# v:t_list && !empty(a:pattern)
+  \ && type(a:pattern[0]) ==# v:t_string && a:pattern[0] ==# '?'
     return s:match_first(a:value, a:pattern[1:], {})
   endif
 
   " In all other cases, the types must match.
 
-  if type(a:value) != type(a:pattern)
+  if type(a:value) !=# type(a:pattern)
     return v:none
   endif
 
   " Matching lists.
 
-  if type(a:pattern) == v:t_list
+  if type(a:pattern) ==# v:t_list
     let result = {}
     let i = 0
 
     while i < len(a:pattern)
       let pat = a:pattern[i]
-      if type(pat) == v:t_string && pat[0] == '*'
+      if type(pat) ==# v:t_string && pat[0] ==# '*'
         " The pattern matches all remaining value nodes.
         let result[pat[1:]] = a:value[i:]
         return result
@@ -486,7 +486,7 @@ function! s:match (value, pattern) abort
 
       " Recursively match a node.
       let r = s:match(a:value[i], pat)
-      if type(r) == v:t_none
+      if type(r) ==# v:t_none
         return v:none
       endif
       for [key, match_val] in items(r)
@@ -506,11 +506,11 @@ function! s:match (value, pattern) abort
 
   " Matching dictionaries.
 
-  if type(a:pattern) == v:t_dict
+  if type(a:pattern) ==# v:t_dict
     let result = {}
 
     for [key, pat] in items(a:pattern)
-      if type(pat) == v:t_string && pat[0] == '?'
+      if type(pat) ==# v:t_string && pat[0] ==# '?'
         if has_key(a:value, key)
           let result[pat[1:]] = a:value[key]
         endif
@@ -523,7 +523,7 @@ function! s:match (value, pattern) abort
       end
 
       let r = s:match(a:value[key], pat)
-      if type(r) == v:t_none
+      if type(r) ==# v:t_none
         return v:none
       endif
       for [key, match_val] in items(r)
@@ -550,7 +550,7 @@ function! s:match_first (value, patterns, ...) abort
   let dict = a:0 > 0 ? a:1 : {}
   for [pattern, extra] in a:patterns
     let r = s:match(a:value, pattern)
-    if type(r) != v:t_none
+    if type(r) !=# v:t_none
       for [k, v] in items(dict) + items(extra)
         let r[k] = v
       endfor
@@ -675,7 +675,7 @@ function s:coq.callback (channel, msg) abort
   for item in s:xml_parse(a:msg, self.xml_stack)
     call self.log('x', "item", item)
     let r = s:match_first(item, s:coq_answer_pattern)
-    if type(r) == v:t_none
+    if type(r) ==# v:t_none
       call self.protocol_error("Message not understood:", item)
       continue
     endif
@@ -683,14 +683,14 @@ function s:coq.callback (channel, msg) abort
 
     " Return value for a request.
 
-    if r.type == 'good' || r.type == 'fail'
+    if r.type ==# 'good' || r.type ==# 'fail'
       if empty(self.return_queue)
         call self.protocol_error("Unexpected value:", item)
         continue
       endif
       let [cmd, formats, Callback, dict] = remove(self.return_queue, 0)
-      let dict.success = (r.type == 'good')
-      if r.type == 'good'
+      let dict.success = (r.type ==# 'good')
+      if r.type ==# 'good'
         let r = s:match_first(r.content, formats, dict)
         if type(r) == v:t_none
           call self.protocol_error("Invalid answer for", cmd, ":", item)
@@ -707,13 +707,13 @@ function s:coq.callback (channel, msg) abort
 
     " Old style informational message.
 
-    elseif r.type == 'message'
+    elseif r.type ==# 'message'
       call self.print_message(r,
         \ has_key(self, 'last_pos') ? self.last_pos : v:none)
 
     " Feedback.
 
-    elseif r.type == 'feedback'
+    elseif r.type ==# 'feedback'
       " Feedback for edit IDs is ignored since we do not use edit IDs here.
       if has_key(r, 'state_id')
         call self.feedback(r.state_id, r.kind, r.content)
@@ -869,7 +869,7 @@ function s:coq.return_edit_at (return, d) abort
   let s = self.states[a:d.id]
   while has_key(s, 'next')
     let id = remove(s, 'next')
-    if a:d.zone && id == a:d.end_id
+    if a:d.zone && id ==# a:d.end_id
       unlet self.states[id].parent
       break
     endif
@@ -951,30 +951,30 @@ function s:coq.feedback(state_id, kind, content) abort
     \   ['richpp', {}, '$message']]]], {}],
     \ ])
 
-  if a:kind == 'processed'
+  if a:kind ==# 'processed'
     call self.log('f', a:kind, a:state_id)
     if !has_key(self.states, a:state_id)
       return
     endif
     let state = self.states[a:state_id]
-    if state.status != 'checked'
+    if state.status !=# 'checked'
       call self['hl_' . state.status].remove(state.range)
       call self.hl_checked.add(state.range)
       let state.status = 'checked'
     endif
 
-  elseif a:kind == 'complete'
+  elseif a:kind ==# 'complete'
     call self.log('f', a:kind, a:state_id)
 
-  elseif a:kind == 'message'
+  elseif a:kind ==# 'message'
     let r = s:match(a:content, [['message', {},
       \ ['message_level', {'val': '$level'}],
       \ ['option', {'val': '$option'}, '*loc'],
       \ ['richpp', {}, '$message']]])
-    if type(r) == v:t_none
+    if type(r) ==# v:t_none
       return self.protocol_error("feedback message", a:content)
     endif
-    if r.option == 'some'
+    if r.option ==# 'some'
       " r.loc has the shape [['loc', {'start': _, 'stop': _}]]
       let r.start = r.loc[0][1].start
       let r.end = r.loc[0][1].stop
@@ -1058,7 +1058,7 @@ function! s:richpp_format (data) abort
 endfunction
 
 function! s:richpp_format_unsplit (data) abort
-  if type(a:data) == v:t_string
+  if type(a:data) ==# v:t_string
     return a:data
   endif
   let text = ""
@@ -1073,7 +1073,7 @@ endfunction
 " byte offset).
 
 function s:coq.print_message(message, pos) abort
-  if a:message.level == 'error' && has_key(a:message, 'start')
+  if a:message.level ==# 'error' && has_key(a:message, 'start')
     call self.hl_error.add(s:byte_pos(a:pos, [a:message.start, a:message.end]))
   endif
   call self.infos.write(s:richpp_format(a:message.message))
@@ -1107,7 +1107,7 @@ function s:coq.create () abort
 endfunction
 
 function s:coq.start_version (d) abort
-  if a:d.protocol != '20150913'
+  if a:d.protocol !=# '20150913'
     return self.infos.write("Unsupported Coq protocol version: "
       \ . a:d.protocol)
   endif
@@ -1149,11 +1149,11 @@ function s:coq.log_debug (kind, head, ...) abort
   let s = printf('%s%s|%-12s|', s, a:kind, a:head)
   let quote = v:false
   for arg in a:000
-    if type(arg) == v:t_none
+    if type(arg) ==# v:t_none
       let quote = v:true
       continue
     endif
-    if type(arg) != v:t_string
+    if type(arg) !=# v:t_string
       let arg = string(arg)
     endif
     if quote
@@ -1214,7 +1214,7 @@ function! s:append_goal (goal, long) abort
     \ ['string', {}, '$name'],
     \ ['list', {}, '*hyp'],
     \ '$goal' ])
-  if type(r) == v:t_none
+  if type(r) ==# v:t_none
     call append(line('$') - 1, ["Invalid structure:", string(a:goal)])
   else
     if a:long
@@ -1392,7 +1392,7 @@ endfunction
 
 hi link CoqError Error
 
-if &background == 'light'
+if &background ==# 'light'
   hi default CoqSent    guibg=#ffeedd ctermbg=lightred
   hi default CoqAdded   guibg=#ffddee ctermbg=yellow
   hi default CoqChecked guibg=#eeffdd ctermbg=lightgreen

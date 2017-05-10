@@ -14,7 +14,7 @@ function! s:SearchForward (pattern, immediate)
       return result
     elseif result > 3
       return result - 2
-    elseif result == 3
+    elseif result ==# 3
       " A closing comment delimiter was found, ignore it.
       let immediate = v:false
       continue
@@ -23,10 +23,10 @@ function! s:SearchForward (pattern, immediate)
     let level = 1
     while level > 0
       let result = search('(\*\|\(\*)\)', 'epWz')
-      if result == 0
+      if result ==# 0
         " A comment is left open at the end of the buffer.
         return 0
-      elseif result == 1
+      elseif result ==# 1
         " An opening delimiter was found.
         let level += 1
       else
@@ -52,7 +52,7 @@ function! s:SearchBackward (pattern, immediate)
       return result
     elseif result > 3
       return result - 2
-    elseif result == 2
+    elseif result ==# 2
       " An opening comment delimiter was found, ignore it.
       let immediate = v:false
       continue
@@ -61,10 +61,10 @@ function! s:SearchBackward (pattern, immediate)
     let level = 1
     while level > 0
       let result = search('(\*\|\(\*)\)', 'bpW')
-      if result == 0
+      if result ==# 0
         " A comment is left open at the beginning of the buffer.
         return 0
-      elseif result == 1
+      elseif result ==# 1
         " An opening delimiter was found.
         let level -= 1
       else
@@ -93,7 +93,7 @@ function! s:IsBeginningOfSentence (immediate)
       " A period or the beginning of the buffer was found.
       call setpos(".", position)
       return v:true
-    elseif result == 2
+    elseif result ==# 2
       " A potential bullet was found, validate it by checking it is a
       " beginning of sentence.
       let immediate = v:false
@@ -114,13 +114,13 @@ function! CoqNextPeriod (immediate)
   let immediate = a:immediate
   while v:true
     let result = s:SearchForward('\.\_s\@=\|\([-+*{}]\)', immediate)
-    if result == 2
+    if result ==# 2
       " A potential bullet was found, check it.
       if s:IsBeginningOfSentence(v:false)
         return v:true
       endif
     else
-      return result != 0
+      return result !=# 0
     endif
     let immediate = v:false
   endwhile
@@ -133,13 +133,13 @@ function! CoqPreviousPeriod (immediate)
   let immediate = a:immediate
   while v:true
     let result = s:SearchBackward('\.\_s\|\([-+*{}]\)', immediate)
-    if result == 2
+    if result ==# 2
       " A potential bullet was found, check it.
       if s:IsBeginningOfSentence(v:false)
         return v:true
       endif
     else
-      return result != 0
+      return result !=# 0
     endif
     let immediate = v:false
   endwhile
@@ -159,7 +159,7 @@ function! CoqNextSentence (count)
     endif
     let i -= 1
   endwhile
-  return s:SearchForward('\S', v:false) != 0
+  return s:SearchForward('\S', v:false) !=# 0
 endfunction
 
 " Move the the beginning of the current sentence, or the previous one if the
@@ -178,7 +178,7 @@ function! CoqPreviousSentence (count)
     endif
     let i -= 1
   endwhile
-  return s:SearchForward('\S', !CoqPreviousPeriod(v:false)) != 0
+  return s:SearchForward('\S', !CoqPreviousPeriod(v:false)) !=# 0
 endfunction
 
 " Select a sentence in visual mode.
@@ -236,7 +236,7 @@ endfunction
 function! CoqFoldText ()
 	let text = getline(v:foldstart)
 	if text =~ "\\((\\*\\* \\|  \\)\\*\\+ "
-		if strpart(text, 0, 4) == "(** "
+		if strpart(text, 0, 4) ==# "(** "
 			let text = strpart(text, 4)
 		else
 			let text = strpart(text, 2)
