@@ -935,6 +935,21 @@ function s:coq.return_init (return, d) abort
   call a:return(a:d)
 endfunction
 
+" query(text, state_id) {{{3
+" -> {message}
+"
+" Perform a query in some state.
+
+function s:coq.call_query (text, state_id, return, dict) abort
+  call self.log('r', "call", "Query", a:text, a:state_id)
+  call self.call('Query',
+    \ ['pair', {},
+    \   ['string', {}, a:text],
+    \   ['state_id', {'val': a:state_id}]],
+    \ a:return, a:dict,
+    \ [[['string', {}, '*message']], {}])
+endfunction
+
 
 " == Handling feedback == {{{2
 
@@ -1344,6 +1359,21 @@ function s:coq.send_until_loop (d) abort
   call self.show_goals()
 endfunction
 
+" Send a query for the focussed state.
+
+function s:coq.query (text) abort
+  call self.infos.clear()
+  call self.call_query(a:text, self.focus, self.query_return, {})
+endfunction
+
+function s:coq.query_return (d) abort
+  if a:d.success
+    call self.infos.write(a:d.message)
+  else
+    call self.infos.write(s:richpp_format(a:d.message))
+  endif
+endfunction
+
 
 " == Commands and mappings == {{{2
 
@@ -1353,6 +1383,7 @@ function! coqtop#Start () abort
   command! -buffer CoqNext :call b:coq.send_next()
   command! -buffer CoqRewind :call b:coq.rewind()
   command! -buffer CoqToCursor :call b:coq.to_cursor()
+  command! -buffer -nargs=1 CoqQuery :call b:coq.query("<args>")
 
   nnoremap <buffer> <silent> <C-Down>  :CoqNext<CR>
   nnoremap <buffer> <silent> <C-Up>    :CoqRewind<CR>
@@ -1377,6 +1408,7 @@ function! coqtop#Quit () abort
   delcommand CoqNext
   delcommand CoqRewind
   delcommand CoqToCursor
+  delcommand CoqQuery
 
   nunmap <buffer> <C-Down>
   nunmap <buffer> <C-Right>

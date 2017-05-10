@@ -112,6 +112,10 @@ are defined when starting a session and undefined when closing a session.
                                                                 *:CoqToCursor*
 :CoqToCursor    Check sentences or rewind, so that the last sentence before
                 the cursor is checked.
+                                                                *:CoqQuery*
+:CoqQuery {text}
+                Send the {text} as a query to Coq in the current state. The
+                {text} must be a complete sentence.
 
 
 -----------------------------------------------------------------------------
