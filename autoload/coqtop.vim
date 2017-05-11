@@ -3,24 +3,25 @@
 
 " = Utility functions for positions and ranges = {{{1
 "
-" Positions are represented by pairs [line,column] and ranges are represented
-" by pairs [first,last] with the positions of the first and last character in
-" the range.
+" Positions are represented by pairs [line,column], where line is counted from
+" 1 and column is a *byte* index counted from 1 (that is how Vim handles
+" positions in getpos() and setpos()). Ranges are represented by pairs
+" [first,last] with the positions of the first and last character in the
+" range.
 
 " Convert byte positions to character positions, relative to a given position.
 " The byte numbers are expected to be in increasing order.
 
 function! s:byte_pos (ref, bytes) abort
   let [l, c] = a:ref
-  let nl_size = (&fileformat ==# 'dos' ? 2 : 1)
   let pos = []
   let byte_ref = 0
-  let line = strcharpart(getline(l), c - 1)
+  let line = strpart(getline(l), c - 1)
   for byte in a:bytes
     let byte -= byte_ref
     while byte >= strlen(line)
-      let byte -= strlen(line) + nl_size
-      let byte_ref += strlen(line) + nl_size
+      let byte -= strlen(line) + 1
+      let byte_ref += strlen(line) + 1
       let l += 1
       let c = 1
       let line = getline(l)
@@ -28,7 +29,7 @@ function! s:byte_pos (ref, bytes) abort
     if byte <= 0
       call add(pos, [l, c])
     else
-      call add(pos, [l, c + strchars(line[:byte-1])])
+      call add(pos, [l, c + byte - 1])
     endif
   endfor
   return pos
@@ -37,33 +38,54 @@ endfunction
 " Compute the next position in the current buffer.
 
 function! s:pos_next (p) abort
-  let [l,c] = a:p
-  if c < strchars(getline(l))
-    return [l,c+1]
+  let [l, c] = a:p
+  if c == 0
+    " Special case for the fake initial position [1,0]
+    return [l, 1]
+  endif
+  let line = getline(l)
+  if c < strlen(line)
+    return [l, byteidx(line, strchars(strpart(line, 0, c - 1)) + 1) + 1]
   elseif l < line("$")
-    return [l+1,1]
+    return [l + 1, 1]
   else
-    return [l,c]
+    return [l, c]
   endif
 endfunction
 
 " Compute the previous position in the current buffer.
 
 function! s:pos_prev (p) abort
-  let [l,c] = a:p
+  let [l, c] = a:p
   if c > 1
-    return [l,c-1]
-  elseif l > 1
-    return [l-1,strchars(getline(l-1))]
+    let line = getline(l)
   else
-    return [l,c]
+    if l > 1
+      let l -= 1
+      let line = getline(l)
+      let c = strlen(line) + 1
+    else
+      return [l, c]
+    endif
   endif
+  return [l, byteidx(line, strchars(strpart(line, 0, c - 1)) - 1) + 1]
 endfunction
 
 " Test if a given position is strictly before another one.
 
 function! s:pos_lt (p, q) abort
   return a:p[0] < a:q[0] || (a:p[0] ==# a:q[0] && a:p[1] < a:q[1])
+endfunction
+
+" Get the text for a given range.
+
+function! s:range_text (range) abort
+  let [s, e] = a:range
+  let lines = getline(s[0], e[0])
+  let lines[-1] = strcharpart(lines[-1], 0,
+    \ strchars(strpart(lines[-1], 0, e[1] - 1)) + 1)
+  let lines[0] = strpart(lines[0], s[1] - 1)
+  return join(lines, "\n")
 endfunction
 
 
@@ -777,15 +799,10 @@ endfunction
 " then 'next_state_id' is the ID of the new focus.
 
 function s:coq.call_add (range, edit_id, state_id, verbose, return, dict) abort
-  let [s, e] = a:range
-  let lines = getline(s[0], e[0])
-  let lines[-1] = strcharpart(lines[-1], 0, e[1])
-  let lines[0] = strcharpart(lines[0], s[1] - 1)
-  let text = join(lines, "\n")
-
+  let text = s:range_text(a:range)
   call self.log('r', "call", "Add",
     \ a:range, a:edit_id, a:state_id, a:verbose, text)
-  let self.last_pos = s
+  let self.last_pos = a:range[0]
   let a:dict.range = a:range
   call self.call('Add',
     \ ['pair', {},
