@@ -139,6 +139,25 @@ Vim while Coq is processing sentences.
 However, editing in a previously checked zone currently does not rewind
 automatically.
 
+                                                                *coq-queries*
+The following key mappings are used to send queries to Coq in the current
+state. For instance, assuming <localleader> is ",", the command ",aiw" in
+normal mode will display information about the word under the cursor in the
+Infos window and ",ci(" will type check the contents of the current
+parenthesis.
+                                                                *coq-map-about*
+<localleader>a{motion}
+{Visual}<localleader>a
+                Send a query "About {text}" for the selected text.
+                                                                *coq-map-check*
+<localleader>c{motion}
+{Visual}<localleader>c
+                Send a query "Check {text}" for the selected text.
+                                                                *coq-map-searchabout*
+<localleader>s{motion}
+{Visual}<localleader>s
+                Send a query "SearchAbout {text}" for the selected text.
+
 
 =============================================================================
 4. Configuration                                                *coq-config*

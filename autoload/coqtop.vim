@@ -1426,6 +1426,32 @@ function s:coq.query_return (d) abort
 endfunction
 
 
+" == Queries == {{{2
+
+" Send a Query command made from the text of the current selection. The first
+" argument is the current mode (see :map-operator in the Vim documentation)
+" and the second argument is a printf template for the query.
+
+function! s:operator (mode, format)
+  let range = [getpos("'[")[1:2], getpos("']")[1:2]]
+  call b:coq.query(printf(a:format, s:range_text(range)))
+endfunction
+
+" The following functions are 'operatorfunc's for particular queries.
+
+function! s:op_about (mode)
+  call s:operator(a:mode, 'About %s.')
+endfunction
+
+function! s:op_check (mode)
+  call s:operator(a:mode, 'Check %s.')
+endfunction
+
+function! s:op_search_about (mode)
+  call s:operator(a:mode, 'SearchAbout %s.')
+endfunction
+
+
 " == Commands and mappings == {{{2
 
 function! coqtop#Start () abort
@@ -1443,6 +1469,13 @@ function! coqtop#Start () abort
   inoremap <buffer> <silent> <C-Down>  <C-\><C-o>:CoqNext<CR>
   inoremap <buffer> <silent> <C-Up>    <C-\><C-o>:CoqRewind<CR>
   inoremap <buffer> <silent> <C-Right> <C-\><C-o>:CoqToCursor<CR>
+
+  nnoremap <buffer> <silent> <localleader>a :set opfunc=<sid>op_about<cr>g@
+  vnoremap <buffer> <silent> <localleader>a :<C-U>call <sid>op_about(visualmode())<cr>
+  nnoremap <buffer> <silent> <localleader>c :set opfunc=<sid>op_check<cr>g@
+  vnoremap <buffer> <silent> <localleader>c :<C-U>call <sid>op_check(visualmode())<cr>
+  nnoremap <buffer> <silent> <localleader>s :set opfunc=<sid>op_search_about<cr>g@
+  vnoremap <buffer> <silent> <localleader>s :<C-U>call <sid>op_search_about(visualmode())<cr>
 
   if b:coq.debugging
     nnoremap <buffer> K :CoqQuit<CR>
@@ -1468,6 +1501,13 @@ function! coqtop#Quit () abort
   iunmap <buffer> <C-Down>
   iunmap <buffer> <C-Right>
   iunmap <buffer> <C-Up>
+
+  nunmap <buffer> <localleader>a
+  vunmap <buffer> <localleader>a
+  nunmap <buffer> <localleader>c
+  vunmap <buffer> <localleader>c
+  nunmap <buffer> <localleader>s
+  vunmap <buffer> <localleader>s
 
   unlet b:coq
 endfunction
