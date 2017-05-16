@@ -1046,15 +1046,28 @@ endfunction
 let s:window = {}
 
 " Create a new window with a new bufffer using a given name and filetype. The
-" buffer will have no file asociated to it. The third argument specifies
-" whether splitting should be vertical or horizontal.
+" buffer will have no file associated to it, a number may be added to the
+" buffer name to ensure it is unique. The third argument specifies whether
+" splitting should be vertical or horizontal.
 
 function s:window.create (name, type, vertical) abort
   if a:vertical
-    execute 'rightbelow vnew ' . a:name
+    rightbelow vnew
   else
-    execute 'rightbelow new ' . a:name
+    rightbelow new
   endif
+  if bufnr(a:name) < 0
+    let name = a:name
+  else
+    let i = 1
+    while v:true
+      let name = a:name . ' [' . i . ']'
+      if bufnr(name) < 0
+        break
+      endif
+    endwhile
+  endif
+  silent execute 'file ' . name
   setlocal buftype=nofile
   setlocal noswapfile
   execute 'setlocal filetype=' . a:type
