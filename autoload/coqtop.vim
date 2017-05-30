@@ -1444,7 +1444,12 @@ endfunction
 " and the second argument is a printf template for the query.
 
 function! s:operator (mode, format)
-  let range = [getpos("'[")[1:2], getpos("']")[1:2]]
+  if a:mode ==? 'v'
+    let range = [getpos("'<")[1:2], getpos("'>")[1:2]]
+  else
+    let range = [getpos("'[")[1:2], getpos("']")[1:2]]
+  endif
+  call b:coq.log('r', 'operator', a:mode, range, a:format)
   call b:coq.query(printf(a:format, s:range_text(range)))
 endfunction
 
