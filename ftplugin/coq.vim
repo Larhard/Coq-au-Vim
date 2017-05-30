@@ -248,9 +248,9 @@ function! CoqFoldText ()
 			let text = "---" . text
 			let level = level - 1
 		endwhile
-		return text
+		return printf("%s-- %s lines ", text, v:foldend - v:foldstart)
 	else
-		return "-- " . text . " "
+		return printf("-- %d lines: %s ", v:foldend - v:foldstart, text)
 	endif
 endfunction
 
