@@ -1065,6 +1065,7 @@ function s:window.create (name, type, vertical)
       if bufnr(name) < 0
         break
       endif
+      let i += 1
     endwhile
   endif
   silent execute 'file ' . name
