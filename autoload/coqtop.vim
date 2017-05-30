@@ -12,7 +12,7 @@
 " Convert byte positions to character positions, relative to a given position.
 " The byte numbers are expected to be in increasing order.
 
-function! s:byte_pos (ref, bytes) abort
+function! s:byte_pos (ref, bytes)
   let [l, c] = a:ref
   let pos = []
   let byte_ref = 0
@@ -37,7 +37,7 @@ endfunction
 
 " Compute the next position in the current buffer.
 
-function! s:pos_next (p) abort
+function! s:pos_next (p)
   let [l, c] = a:p
   if c == 0
     " Special case for the fake initial position [1,0]
@@ -55,7 +55,7 @@ endfunction
 
 " Compute the previous position in the current buffer.
 
-function! s:pos_prev (p) abort
+function! s:pos_prev (p)
   let [l, c] = a:p
   if c > 1
     let line = getline(l)
@@ -73,13 +73,13 @@ endfunction
 
 " Test if a given position is strictly before another one.
 
-function! s:pos_lt (p, q) abort
+function! s:pos_lt (p, q)
   return a:p[0] < a:q[0] || (a:p[0] ==# a:q[0] && a:p[1] < a:q[1])
 endfunction
 
 " Get the text for a given range.
 
-function! s:range_text (range) abort
+function! s:range_text (range)
   let [s, e] = a:range
   let lines = getline(s[0], e[0])
   let lines[-1] = strcharpart(lines[-1], 0,
@@ -100,7 +100,7 @@ let s:highlighter = { }
 
 " Create an empty highlighter for a given group.
 
-function s:highlighter.create (group) abort
+function s:highlighter.create (group)
   let new = copy(s:highlighter)
   let new.group = a:group
   let new.ranges = []
@@ -111,7 +111,7 @@ endfunction
 
 " Clear a highlighter.
 
-function s:highlighter.clear () abort
+function s:highlighter.clear ()
   for r in self.ranges
     call matchdelete(r[2])
   endfor
@@ -120,7 +120,7 @@ endfunction
 
 " Add a range to a highlighter (without optimisation).
 
-function s:highlighter.add_raw (range) abort
+function s:highlighter.add_raw (range)
   let [ls, cs] = a:range[0]
   let [le, ce] = a:range[1]
 
@@ -142,7 +142,7 @@ endfunction
 
 " Add a range to a highlighter (with optimisation).
 
-function s:highlighter.add (range) abort
+function s:highlighter.add (range)
   let [s, e] = a:range
 
   if e ==# [1, 0]
@@ -180,7 +180,7 @@ endfunction
 
 " Remove a range from a highlighter.
 
-function s:highlighter.remove (range) abort
+function s:highlighter.remove (range)
   let [s, e] = a:range
 
   if e ==# [1, 0]
@@ -232,7 +232,7 @@ endfunction
 
 " == String escaping == {{{2
 
-function! s:entity_escape (text) abort
+function! s:entity_escape (text)
   return substitute(a:text, "[&'\"<>]", {m -> s:char2entity[m[0]]}, 'g')
 endfunction
 
@@ -243,7 +243,7 @@ let s:char2entity = {
 \ '<': '&lt;',
 \ '>': '&gt;' }
 
-function! s:entity_unescape (text) abort
+function! s:entity_unescape (text)
   return substitute(a:text, '&\(#\?[a-z0-9]\+\);',
     \ '\=s:entity_chr(submatch(1))', 'g')
 endfunction
@@ -256,7 +256,7 @@ let s:entity2char = {
 \ 'nbsp': ' ',
 \ 'gt': '>' }
 
-function! s:entity_chr (name) abort
+function! s:entity_chr (name)
   if a:name[0] !=# '#'
     return get(s:entity2char, a:name, '&' . a:name . ';')
   elseif a:name[1] ==# 'x'
@@ -273,7 +273,7 @@ endfunction
 " corresponding XML. The argument is a list of nodes, each node that is not a
 " list is turned into a string of character data.
 
-function! s:xml_format (items) abort
+function! s:xml_format (items)
   let output = ''
   for item in a:items
     if type(item) !=# v:t_list
@@ -309,7 +309,7 @@ endfunction
 " instance '<tag attr="foo' is considered an error and will be treated like
 " '<tag attr="foo">'.
 
-function! s:xml_parse (xml, stack) abort
+function! s:xml_parse (xml, stack)
   let output = []
   let len = strlen(a:xml)
   let pos = 0
@@ -349,7 +349,7 @@ function! s:xml_parse (xml, stack) abort
     endif
     let pos = match(a:xml, '[ >/]', tag_pos)
     if pos <= tag_pos
-      echo "Empty tag name at position " . tag_pos
+      throw "coqtop:xml:empty_tag(" . tag_pos . ")"
       let pos = tag_pos
     endif
     let tag = strpart(a:xml, tag_pos, pos - tag_pos)
@@ -360,7 +360,7 @@ function! s:xml_parse (xml, stack) abort
     while pos < len
       let pos = match(a:xml, '[^ ]', pos)
       if pos ==# -1
-        echo "Open tag at position " . pos
+        throw "coqtop:xml:open_tag(" . pos . ")"
         let pos = len
       endif
       if strpart(a:xml, pos, 1) ==# '>'
@@ -371,7 +371,7 @@ function! s:xml_parse (xml, stack) abort
         let closing = v:true
         let pos = stridx(a:xml, '>', pos + 1)
         if pos ==# -1
-          echo "Unterminated standalone tag"
+          throw "coqtop:xml:unterminated_tag"
           let pos = len
         else
           let pos += 1
@@ -380,7 +380,7 @@ function! s:xml_parse (xml, stack) abort
       endif
       let end_pos = match(a:xml, '[=>/]', pos)
       if end_pos ==# -1
-        echo "Unterminated tag"
+        throw "coqtop:xml:unterminated_tag"
         let pos = end_pos
         break
       endif
@@ -390,7 +390,7 @@ function! s:xml_parse (xml, stack) abort
           let pos = end_pos + 2
           let end_pos = stridx(a:xml, '"', pos)
           if end_pos ==# -1
-            echo "Unterminated string at position " . pos
+            throw "coqtop:xml:unterminated_string(" . pos . ")"
             let end_pos = len
           endif
           let attr[key] =
@@ -421,8 +421,7 @@ function! s:xml_parse (xml, stack) abort
     if closing
       let top = remove(a:stack, -1)
       if top[0] !=# tag
-        echo "Invalid closing tag at position " . tag_pos
-          \ . " (expected " . top[0] . ", got " . tag . ")"
+        throw "coqtop:xml:invalid_closing_tag(" . tag_pos . "," . top[0] . "," . tag . ")"
       endif
       if empty(a:stack)
         call add(output, top)
@@ -458,7 +457,7 @@ endfunction
 " This function acts on generic data structures, but we use it here to extract
 " information from parsed XML.
 
-function! s:match (value, pattern) abort
+function! s:match (value, pattern)
   " String patterns.
 
   if type(a:pattern) ==# v:t_string
@@ -558,7 +557,7 @@ function! s:match (value, pattern) abort
 
   " Other types are not supported.
 
-  echoerr "Invalid arguments"
+  throw "coqtop:match:invalid_arguments"
   return v:none
 endfunction
 
@@ -568,7 +567,7 @@ endfunction
 " dictionary of extra items added to the return value in case of match. An
 " optional third argument specifies extra items to add in the return value.
 
-function! s:match_first (value, patterns, ...) abort
+function! s:match_first (value, patterns, ...)
   let dict = a:0 > 0 ? a:1 : {}
   for [pattern, extra] in a:patterns
     let r = s:match(a:value, pattern)
@@ -613,7 +612,7 @@ let s:coq = { }
 
 " The default logging function does nothing. It is overridden when debugging.
 
-function s:coq.log (...) abort
+function s:coq.log (...)
 endfunction
 
 " == Job management and basic communication == {{{2
@@ -627,7 +626,7 @@ endfunction
 
 " Start the job for coqtop.
 
-function s:coq.start_job () abort
+function s:coq.start_job ()
   if has_key(self, 'job') && !empty(self.job)
     call self.stop_job()
   endif
@@ -642,7 +641,7 @@ endfunction
 
 " Stop the running job.
 
-function s:coq.stop_job () abort
+function s:coq.stop_job ()
   call self.log('j', "stop", self.job)
   call job_stop(self.job)
   let self.job = v:none
@@ -660,7 +659,7 @@ endfunction
 " In any case, the dictionary contains at least a field 'success' that is true
 " if the call succeeded and false on failure.
 
-function s:coq.call (command, argument, callback, dict, ...) abort
+function s:coq.call (command, argument, callback, dict, ...)
   let xml = s:xml_format([['call', {'val': a:command}, a:argument]])
   call self.log('x', "send", xml)
   call add(self.return_queue, [a:command, a:000, a:callback, a:dict])
@@ -692,7 +691,7 @@ let s:coq_answer_pattern =[
   \   ['feedback_content', {'val': '$kind'}, '*content']],
   \ {'type': 'feedback'}] ]
 
-function s:coq.callback (channel, msg) abort
+function s:coq.callback (channel, msg)
   call self.log('x', "recv", a:msg)
   for item in s:xml_parse(a:msg, self.xml_stack)
     call self.log('x', "item", item)
@@ -747,7 +746,7 @@ endfunction
 
 " A function called on protocol errors.
 
-function s:coq.protocol_error (...) abort
+function s:coq.protocol_error (...)
   if self.debugging
     call function(self.log, ['e', "protocol"] + a:000)()
   else
@@ -755,6 +754,7 @@ function s:coq.protocol_error (...) abort
     echomsg "Coq protocol error (run in debugging mode for details)"
     echohl None
   endif
+  throw "coqtop:protocol:error"
 endfunction
 
 
@@ -776,7 +776,7 @@ endfunction
 " Get information avout Coq: version number, protocol version, release date
 " and compile date.
 
-function s:coq.call_about (return, dict) abort
+function s:coq.call_about (return, dict)
   call self.log('r', "call", "About")
   call self.call('About',
     \ ['unit', {}],
@@ -798,7 +798,7 @@ endfunction
 " return value, 'closing' is true when the sentence closes an existing focus,
 " then 'next_state_id' is the ID of the new focus.
 
-function s:coq.call_add (range, edit_id, state_id, verbose, return, dict) abort
+function s:coq.call_add (range, edit_id, state_id, verbose, return, dict)
   let text = s:range_text(a:range)
   call self.log('r', "call", "Add",
     \ a:range, a:edit_id, a:state_id, a:verbose, text)
@@ -828,7 +828,7 @@ function s:coq.call_add (range, edit_id, state_id, verbose, return, dict) abort
   call self.hl_sent.add(a:range)
 endfunction
 
-function s:coq.return_add (return, d) abort
+function s:coq.return_add (return, d)
   unlet self.last_pos
   call self.hl_sent.remove(a:d.range)
   if !a:d.success
@@ -862,7 +862,7 @@ endfunction
 " indicates the corresponding 'Qed.' sentence. The 'states' field contains
 " the sentences that were deleted.
 
-function s:coq.call_edit_at (state_id, return, dict) abort
+function s:coq.call_edit_at (state_id, return, dict)
   call self.log('r', "call", "edit_at", a:state_id)
   call self.call('Edit_at',
     \ ['state_id', {'val': a:state_id}],
@@ -877,7 +877,7 @@ function s:coq.call_edit_at (state_id, return, dict) abort
     \ {'zone': v:true, 'id': a:state_id}])
 endfunction
 
-function s:coq.return_edit_at (return, d) abort
+function s:coq.return_edit_at (return, d)
   if !a:d.success
     return a:return(a:d)
   endif
@@ -905,7 +905,7 @@ endfunction
 " Get the list of goals in the current state. The return value is empty when
 " there is no proof open.
 
-function s:coq.call_goal (return, dict) abort
+function s:coq.call_goal (return, dict)
   call self.log('r', "call", "Goal")
   call self.call('Goal',
     \ ['unit', {}],
@@ -924,7 +924,7 @@ endfunction
 " Initialise the prover. This must be called first and once. The return value
 " is the identifier of the initial state.
 
-function s:coq.call_init (return, dict) abort
+function s:coq.call_init (return, dict)
   call self.log('r', "call", "Init")
   call self.call('Init',
     \ ['option', {'val': 'none'}],
@@ -932,7 +932,7 @@ function s:coq.call_init (return, dict) abort
     \ [[['state_id', {'val': '$state_id'}]], {}])
 endfunction
 
-function s:coq.return_init (return, d) abort
+function s:coq.return_init (return, d)
   if !a:d.success
     return a:return(a:d)
   endif
@@ -957,7 +957,7 @@ endfunction
 "
 " Perform a query in some state.
 
-function s:coq.call_query (text, state_id, return, dict) abort
+function s:coq.call_query (text, state_id, return, dict)
   call self.log('r', "call", "Query", a:text, a:state_id)
   call self.call('Query',
     \ ['pair', {},
@@ -972,7 +972,7 @@ endfunction
 "
 " Terminate the Coq session.
 
-function s:coq.call_quit (return, dict) abort
+function s:coq.call_quit (return, dict)
   call self.log('r', "call", "Quit")
   call self.call('Quit',
     \ ['unit', {}],
@@ -983,7 +983,7 @@ endfunction
 
 " == Handling feedback == {{{2
 
-function s:coq.feedback(state_id, kind, content) abort
+function s:coq.feedback(state_id, kind, content)
   if !has_key(self.states, a:state_id)
     return self.log('e', 'feedback', 'feedback for unknown state', a:state_id)
   endif
@@ -1050,7 +1050,7 @@ let s:window = {}
 " buffer name to ensure it is unique. The third argument specifies whether
 " splitting should be vertical or horizontal.
 
-function s:window.create (name, type, vertical) abort
+function s:window.create (name, type, vertical)
   if a:vertical
     rightbelow vnew
   else
@@ -1079,13 +1079,13 @@ endfunction
 
 " Delete a window and its buffer.
 
-function s:window.close () abort
+function s:window.close ()
   execute 'bdelete! ' . self.buffer
 endfunction
 
 " Clear the contents of a window.
 
-function s:window.clear () abort
+function s:window.clear ()
   let win = win_getid()
   call win_gotoid(self.id)
   0,$d
@@ -1096,7 +1096,7 @@ endfunction
 " strings. The '\n' character is interpreted and each string is split into
 " lines.
 
-function s:window.write (text) abort
+function s:window.write (text)
   let win = win_getid()
   call win_gotoid(self.id)
   call append(line('$') - 1, a:text)
@@ -1111,11 +1111,11 @@ endfunction
 " This function simply strips all tags and preserves only textual content, a
 " future version may use the information to do something more intelligent.
 
-function! s:richpp_format (data) abort
+function! s:richpp_format (data)
   return split(s:richpp_format_unsplit(a:data), '\n', v:true)
 endfunction
 
-function! s:richpp_format_unsplit (data) abort
+function! s:richpp_format_unsplit (data)
   if type(a:data) ==# v:t_string
     return a:data
   endif
@@ -1130,7 +1130,7 @@ endfunction
 " position in the buffer, used when the messages contains a location (as a
 " byte offset).
 
-function s:coq.print_message(message, pos) abort
+function s:coq.print_message(message, pos)
   if a:message.level ==# 'error' && has_key(a:message, 'start')
     call self.hl_error.add(s:byte_pos(a:pos, [a:message.start, a:message.end]))
   endif
@@ -1145,7 +1145,7 @@ endfunction
 " When the job has started, we check that the protocol version is supported
 " and we make an initial state.
 
-function s:coq.create () abort
+function s:coq.create ()
   let new = copy(self)
   let new.debugging = exists('b:coq_debug')
 
@@ -1164,7 +1164,7 @@ function s:coq.create () abort
   return new
 endfunction
 
-function s:coq.start_version (d) abort
+function s:coq.start_version (d)
   if a:d.protocol !=# '20150913'
     return self.infos.write("Unsupported Coq protocol version: "
       \ . a:d.protocol)
@@ -1174,17 +1174,19 @@ function s:coq.start_version (d) abort
   call self.call_init(self.start_state, {})
 endfunction
 
-function s:coq.start_state (d) abort
+function s:coq.start_state (d)
   call self.infos.write("Ready.")
 endfunction
 
 " Terminate a session and close the windows.
 
-function s:coq.quit () abort
-  call self.call_quit(self.quit_return, {})
+function s:coq.quit ()
+  try
+    call self.call_quit(self.quit_return, {})
+  endtry
 endfunction
 
-function s:coq.quit_return (d) abort
+function s:coq.quit_return (d)
   if !a:d.success
     return
   endif
@@ -1203,7 +1205,7 @@ endfunction
 
 " Log function when debugging.
 
-function s:coq.log_debug (kind, head, ...) abort
+function s:coq.log_debug (kind, head, ...)
   if stridx(b:coq_debug, a:kind) < 0
     return
   endif
@@ -1234,11 +1236,11 @@ endfunction
 
 " == Showing goals == {{{2
 
-function s:coq.show_goals () abort
+function s:coq.show_goals ()
   call self.call_goal(self.show_goals_return, {})
 endfunction
 
-function s:coq.show_goals_return (d) abort
+function s:coq.show_goals_return (d)
   if !a:d.success
     return self.call_edit_at(a:d.state_id, self.rewind_return, {})
   endif
@@ -1275,7 +1277,7 @@ function s:coq.show_goals_return (d) abort
   call win_gotoid(win)
 endfunction
 
-function! s:append_goal (goal, long) abort
+function! s:append_goal (goal, long)
   let r = s:match(a:goal, ['goal', {},
     \ ['string', {}, '$name'],
     \ ['list', {}, '*hyp'],
@@ -1300,21 +1302,23 @@ endfunction
 
 " Send the next sentence.
 
-function s:coq.send_next () abort
-  call self.infos.clear()
-  call self.hl_error.clear()
-  let initial = getcurpos()
-  let s = self.states[self.focus]
-  let start = s:pos_next(s.range[1])
-  call setpos('.', [0] + start)
-  if CoqNextPeriod(v:true)
-    call self.call_add([start, getpos('.')[1:2]], -1, self.focus, v:true,
-      \ self.send_next_return, {})
-  endif
-  call setpos('.', initial)
+function s:coq.send_next ()
+  try
+    call self.infos.clear()
+    call self.hl_error.clear()
+    let initial = getcurpos()
+    let s = self.states[self.focus]
+    let start = s:pos_next(s.range[1])
+    call setpos('.', [0] + start)
+    if CoqNextPeriod(v:true)
+      call self.call_add([start, getpos('.')[1:2]], -1, self.focus, v:true,
+        \ self.send_next_return, {})
+    endif
+    call setpos('.', initial)
+  endtry
 endfunction
 
-function s:coq.send_next_return (d) abort
+function s:coq.send_next_return (d)
   if !empty(a:d.message)
     let a:d.level = a:d.success ? 'info' : 'error'
     call self.print_message(a:d, a:d.range[0])
@@ -1328,18 +1332,20 @@ endfunction
 
 " Rewind one sentence.
 
-function s:coq.rewind () abort
-  call self.hl_error.clear()
-  call self.infos.clear()
-  let s = self.states[self.focus]
-  if !has_key(s, 'parent')
-    call self.log('r', "rewind", "no parent for", self.focus)
-    return
-  endif
-  call self.call_edit_at(s.parent, self.rewind_return, {})
+function s:coq.rewind ()
+  try
+    call self.hl_error.clear()
+    call self.infos.clear()
+    let s = self.states[self.focus]
+    if !has_key(s, 'parent')
+      call self.log('r', "rewind", "no parent for", self.focus)
+      return
+    endif
+    call self.call_edit_at(s.parent, self.rewind_return, {})
+  endtry
 endfunction
 
-function s:coq.rewind_return (d) abort
+function s:coq.rewind_return (d)
   if a:d.success
     for s in a:d.states
       let pos = s.range[0]
@@ -1353,33 +1359,35 @@ endfunction
 
 " Add or rewind until a given point.
 
-function s:coq.to_cursor () abort
-  call self.infos.clear()
-  call self.hl_error.clear()
-  let pos = getpos('.')[1:2]
-  if s:pos_lt(self.states[self.focus].range[1], pos)
-    " The current position is after the focus, add sentences.
-    " Fake a return code from call_add to initialise the loop.
-    call self.send_until_loop({
-      \ 'success': v:true, 'closing': v:false, 'state_id': self.focus,
-      \ 'message': [], 'end': pos })
-  else
-    " The current position is before the focus, rewind to the last state
-    " before the current position.
-    let last_id = v:none
-    let last_pos = [0, 0]
-    for [id, st] in items(self.states)
-      if s:pos_lt(st.range[1], pos) && s:pos_lt(last_pos, st.range[1])
-        let last_id = id
-        let last_pos = st.range[1]
-      end
-    endfor
-    call assert_notequal(type(last_id), v:t_none)
-    call self.call_edit_at(last_id, self.rewind_return, {})
-  endif
+function s:coq.to_cursor ()
+  try
+    call self.infos.clear()
+    call self.hl_error.clear()
+    let pos = getpos('.')[1:2]
+    if s:pos_lt(self.states[self.focus].range[1], pos)
+      " The current position is after the focus, add sentences.
+      " Fake a return code from call_add to initialise the loop.
+      call self.send_until_loop({
+        \ 'success': v:true, 'closing': v:false, 'state_id': self.focus,
+        \ 'message': [], 'end': pos })
+    else
+      " The current position is before the focus, rewind to the last state
+      " before the current position.
+      let last_id = v:none
+      let last_pos = [0, 0]
+      for [id, st] in items(self.states)
+        if s:pos_lt(st.range[1], pos) && s:pos_lt(last_pos, st.range[1])
+          let last_id = id
+          let last_pos = st.range[1]
+        end
+      endfor
+      call assert_notequal(type(last_id), v:t_none)
+      call self.call_edit_at(last_id, self.rewind_return, {})
+    endif
+  endtry
 endfunction
 
-function s:coq.send_until_loop (d) abort
+function s:coq.send_until_loop (d)
   " On failure, stop and edit where the error occurred.
   if !a:d.success
     return self.call_edit_at(a:d.state_id, self.rewind_return, {})
@@ -1412,12 +1420,14 @@ endfunction
 
 " Send a query for the focussed state.
 
-function s:coq.query (text) abort
-  call self.infos.clear()
-  call self.call_query(a:text, self.focus, self.query_return, {})
+function s:coq.query (text)
+  try
+    call self.infos.clear()
+    call self.call_query(a:text, self.focus, self.query_return, {})
+  endtry
 endfunction
 
-function s:coq.query_return (d) abort
+function s:coq.query_return (d)
   if a:d.success
     call self.infos.write(a:d.message)
   else
@@ -1440,21 +1450,27 @@ endfunction
 " The following functions are 'operatorfunc's for particular queries.
 
 function! s:op_about (mode)
-  call s:operator(a:mode, 'About %s.')
+  try
+    call s:operator(a:mode, 'About %s.')
+  endtry
 endfunction
 
 function! s:op_check (mode)
-  call s:operator(a:mode, 'Check %s.')
+  try
+    call s:operator(a:mode, 'Check %s.')
+  endtry
 endfunction
 
 function! s:op_search_about (mode)
-  call s:operator(a:mode, 'SearchAbout %s.')
+  try
+    call s:operator(a:mode, 'SearchAbout %s.')
+  endtry
 endfunction
 
 
 " == Commands and mappings == {{{2
 
-function! coqtop#Start () abort
+function! coqtop#Start ()
   let b:coq = s:coq.create()
   command! -buffer CoqQuit :call b:coq.quit()
   command! -buffer CoqNext :call b:coq.send_next()
@@ -1487,7 +1503,7 @@ endfunction
 
 let s:my_source = expand('<sfile>:p')
 
-function! coqtop#Quit () abort
+function! coqtop#Quit ()
   delcommand CoqQuit
   delcommand CoqNext
   delcommand CoqRewind
