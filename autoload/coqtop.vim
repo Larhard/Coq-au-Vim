@@ -1089,7 +1089,7 @@ endfunction
 function s:window.clear ()
   let win = win_getid()
   call win_gotoid(self.id)
-  0,$d
+  0,$d _
   call win_gotoid(win)
 endfunction
 
@@ -1247,7 +1247,7 @@ function s:coq.show_goals_return (d)
   endif
   let win = win_getid()
   call win_gotoid(self.goals.id)
-  0,$d
+  0,$d _
   if has_key(a:d, 'current')
     if empty(a:d.current)
       call append(line('$') - 1, "No goal")
