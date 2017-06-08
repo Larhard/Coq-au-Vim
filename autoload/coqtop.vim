@@ -89,134 +89,6 @@ function! s:range_text (range)
 endfunction
 
 
-" = Highlighting regions = {{{1
-"
-" A 'highlighter' object maintains a set of highlighted regions in a window.
-" Regions are specified as ranges and can be added and removed, the object
-" takes care of optimising the description of regions (by joining contiguous
-" ranges) and maintains a corresponding set of highlight patterns.
-
-let s:highlighter = { }
-
-" Create an empty highlighter for a given group.
-
-function s:highlighter.create (group)
-  let new = copy(s:highlighter)
-  let new.group = a:group
-  let new.ranges = []
-  " Items in the 'ranges' list are tuples [[ls,cs],[le,ce],id] where 'id' is
-  " the match ID as provided by matchadd().
-  return new
-endfunction
-
-" Clear a highlighter.
-
-function s:highlighter.clear ()
-  for r in self.ranges
-    call matchdelete(r[2])
-  endfor
-  let self.ranges = []
-endfunction
-
-" Add a range to a highlighter (without optimisation).
-
-function s:highlighter.add_raw (range)
-  let [ls, cs] = a:range[0]
-  let [le, ce] = a:range[1]
-
-  let pat = '\%' . ls . 'l'
-  if cs > 1
-    let pat .= '\%>' . (cs - 1) . 'c'
-  endif
-  if le > ls + 1
-    let pat .= '\|\%>' . ls . 'l\%<' . le . 'l'
-  endif
-  if le > ls
-    let pat .= '\|\%' . le . 'l'
-  endif
-  let pat .= '\%<' . (ce + 1) . 'c'
-
-  call add(a:range, matchadd(self.group, pat))
-  call add(self.ranges, a:range)
-endfunction
-
-" Add a range to a highlighter (with optimisation).
-
-function s:highlighter.add (range)
-  let [s, e] = a:range
-
-  if e ==# [1, 0]
-    " The fake initial range is ignored.
-    return
-  endif
-
-  let s1 = s:pos_prev(s)
-  let e1 = s:pos_next(e)
-  let new = []
-
-  for r in self.ranges
-    let [rs, re, id] = r
-    if s:pos_lt(re, s1) || s:pos_lt(e1, rs)
-      " The range is strictly before or after the new one
-      call add(new, r)
-      continue
-    endif
-
-    " The range gets fused with the new one
-    call matchdelete(id)
-    if s:pos_lt(rs, s)
-      let s = rs
-      let s1 = s:pos_prev(s)
-    endif
-    if s:pos_lt(e, re)
-      let e = re
-      let e1 = s:pos_next(e)
-    endif
-  endfor
-
-  let self.ranges = new
-  call self.add_raw([s, e])
-endfunction
-
-" Remove a range from a highlighter.
-
-function s:highlighter.remove (range)
-  let [s, e] = a:range
-
-  if e ==# [1, 0]
-    " The fake initial range is ignored.
-    return
-  endif
-
-  let new = []
-  let added = []
-
-  for r in self.ranges
-    let [rs, re, id] = r
-    if s:pos_lt(re, s) || s:pos_lt(e, rs)
-      " The range is before or after what is removed
-      call add(new, r)
-      continue
-    endif
-
-    call matchdelete(id)
-    if s:pos_lt(rs, s)
-      " The beginning of the range is preserved
-      call add(added, [rs, s:pos_prev(s)])
-    endif
-    if s:pos_lt(e, re)
-      " The end of the range is preserved
-      call add(added, [s:pos_next(e), re])
-    endif
-  endfor
-
-  let self.ranges = new
-  for r in added
-    call self.add_raw(r)
-  endfor
-endfunction
-
-
 " = XML handling = {{{1
 "
 " The following functions handle a simple subset of XML that is sufficient for
@@ -594,9 +466,7 @@ endfunction
 " The prover state, seen from Vim, consists in the following data:
 "   - states: a dictionary mapping state IDs to their descriptions
 "   - focus: the state ID of the current sentence in focus
-"   - hl_sent: a highlighter for text that was sent to Coq
-"   - hl_added: a highlighter for text that has a state_id
-"   - hl_checked: a highlighter for text that was processed
+"   - zones: a set of text zones (see 'highlighting')
 "   - last_pos: the start position of the last range sent to Coq (between a
 "     call to Add and the reply, used to locate potential error messages)
 "
@@ -825,16 +695,16 @@ function s:coq.call_add (range, edit_id, state_id, verbose, return, dict)
     \       {'closing': v:true}] ],
     \     ['string', {}, '*message']]]],
     \ {'parent_id': a:state_id}])
-  call self.hl_sent.add(a:range)
+  call self.highlight(a:range, 'CoqSent')
 endfunction
 
 function s:coq.return_add (return, d)
   unlet self.last_pos
-  call self.hl_sent.remove(a:d.range)
   if !a:d.success
+    call self.highlight(a:d.range, '')
     return a:return(a:d)
   endif
-  call self.hl_added.add(a:d.range)
+  call self.highlight(a:d.range, 'CoqAdded')
   let self.states[a:d.parent_id].next = a:d.state_id
   if a:d.closing
     " A subproof is closed.
@@ -891,7 +761,7 @@ function s:coq.return_edit_at (return, d)
       break
     endif
     let s = remove(self.states, id)
-    call self['hl_' . s.status].remove(s.range)
+    call self.highlight(s.range, '')
     call add(a:d.states, s)
   endwhile
 
@@ -1017,11 +887,7 @@ function s:coq.return_init (return, d)
     \ 'status': 'checked',
     \ 'messages': [] }}
   let self.focus = a:d.state_id
-
-  let self.hl_sent = s:highlighter.create('CoqSent')
-  let self.hl_added = s:highlighter.create('CoqAdded')
-  let self.hl_checked = s:highlighter.create('CoqChecked')
-  let self.hl_error = s:highlighter.create('CoqError')
+  let self.zones = []
 
   call a:return(a:d)
 endfunction
@@ -1123,8 +989,7 @@ function s:coq.feedback(state_id, kind, content)
     endif
     let state = self.states[a:state_id]
     if state.status !=# 'checked'
-      call self['hl_' . state.status].remove(state.range)
-      call self.hl_checked.add(state.range)
+      call self.highlight(state.range, 'CoqChecked')
       let state.status = 'checked'
     endif
 
@@ -1148,6 +1013,150 @@ function s:coq.feedback(state_id, kind, content)
   else
     call self.log('f', a:kind, a:state_id, a:content)
   endif
+endfunction
+
+
+" == Highlighting regions == {{{2
+"
+" The field 'zone' in a coq object is a list of currently highlighted zones.
+" Its items are dictionaries with the following entries:
+"   - range: the range, in the format [[ls,cs], [le,cs]]
+"   - group: the highlighting group
+"   - match: the match ID as provided by matchadd()
+" As an invariant, all zones are disjoint and adjacent zones have different
+" groups.
+
+" Clear the zones. The optional argument is group name, if it is used then
+" only the zones with this name will be cleared.
+
+function s:coq.clear_zones (...)
+  if a:0 ==# 0
+    for z in self.zones
+      call self.drop_zone(z)
+    endfor
+    let self.zones = []
+  else
+    let new = []
+    for z in self.zones
+      if z.group ==# a:1
+        call self.drop_zone(z)
+      else
+        call add(new, z)
+      endif
+    endfor
+    let self.zones = new
+  endif
+endfunction
+
+" Update a zone. This accepts a dictionary, possibly empty, and returns it
+" updated.
+
+function s:coq.update_zone (zone, range, group)
+  call self.log('h', 'update', a:zone, a:range, a:group)
+
+  let [ls, cs] = a:range[0]
+  let [le, ce] = a:range[1]
+
+  let pat = '\%' . ls . 'l'
+  if cs > 1
+    let pat .= '\%>' . (cs - 1) . 'c'
+  endif
+  if le > ls + 1
+    let pat .= '\|\%>' . ls . 'l\%<' . le . 'l'
+  endif
+  if le > ls
+    let pat .= '\|\%' . le . 'l'
+  endif
+  let pat .= '\%<' . (ce + 1) . 'c'
+
+  if has_key(a:zone, 'match')
+    call matchdelete(a:zone.match)
+    let a:zone.match = matchadd(a:group, pat, 10, a:zone.match)
+  else
+    let a:zone.match = matchadd(a:group, pat)
+  endif
+  let a:zone.range = a:range
+  let a:zone.group = a:group
+
+  return a:zone
+endfunction
+
+" Remove a zone from the highlighter.
+
+function s:coq.drop_zone (zone)
+  call self.log('h', 'drop', a:zone)
+  call matchdelete(a:zone.match)
+endfunction
+
+" Set the group for a given range. If the specified group is empty, the range
+" is removed from the highlighter.
+
+function s:coq.highlight (range, group)
+  let [s, e] = a:range
+
+  if e ==# [1, 0]
+    " The fake initial range is ignored.
+    return
+  endif
+
+  let s1 = s:pos_prev(s)
+  let e1 = s:pos_next(e)
+  let new = []
+  let fresh = {}
+
+  for z in self.zones
+    let [rs, re] = z.range
+    if z.group ==# a:group
+      if s:pos_lt(re, s1) || s:pos_lt(e1, rs)
+        " The range is strictly before or after the new one, keep it unchanged.
+        call add(new, z)
+        continue
+      endif
+      " The range gets extended.
+      if s:pos_lt(rs, s)
+        let s = rs
+        let s1 = s:pos_prev(s)
+      endif
+      if s:pos_lt(e, re)
+        let e = re
+        let e1 = s:pos_next(e)
+      endif
+      if empty(fresh)
+        let fresh = z
+      else
+        call self.drop_zone(z)
+      endif
+
+    else
+      " The zone is in a different group.
+      if s:pos_lt(re, s) || s:pos_lt(e, rs)
+        " The range is before or after what is removed.
+        call add(new, z)
+        continue
+      endif
+
+      if s:pos_lt(rs, s)
+        " The beginning of the zone is preserved.
+        call add(new, self.update_zone(z, [rs, s1], z.group))
+        if s:pos_lt(e, re)
+          " The end of the zone is preserved too.
+          call add(new, self.update_zone({}, [e1, re], z.group))
+        endif
+      elseif s:pos_lt(e, re)
+        " The end of the zone is preserved.
+        call add(new, self.update_zone(z, [e1, re], z.group))
+      else
+        " The zone is completely removed.
+        call self.drop_zone(z)
+      endif
+    endif
+  endfor
+
+  if !empty(a:group)
+    call self.update_zone(fresh, [s, e], a:group)
+    call add(new, fresh)
+  endif
+  let self.zones = new
 endfunction
 
 
@@ -1249,7 +1258,7 @@ endfunction
 
 function s:coq.print_message(message, pos)
   if a:message.level ==# 'error' && has_key(a:message, 'start')
-    call self.hl_error.add(s:byte_pos(a:pos, [a:message.start, a:message.end]))
+    call self.highlight(s:byte_pos(a:pos, [a:message.start, a:message.end]), 'CoqError')
   endif
   call self.infos.write(s:richpp_format(a:message.message))
 endfunction
@@ -1313,10 +1322,7 @@ function s:coq.quit_return (d)
   if self.debugging
     call self.debug.close()
   endif
-  call self.hl_added.clear()
-  call self.hl_sent.clear()
-  call self.hl_checked.clear()
-  call self.hl_error.clear()
+  call self.clear_zones()
   call coqtop#Quit()
 endfunction
 
@@ -1422,7 +1428,7 @@ endfunction
 function s:coq.send_next ()
   try
     call self.infos.clear()
-    call self.hl_error.clear()
+    call self.clear_zones('CoqError')
     let initial = getcurpos()
     let s = self.states[self.focus]
     let start = s:pos_next(s.range[1])
@@ -1451,8 +1457,8 @@ endfunction
 
 function s:coq.rewind ()
   try
-    call self.hl_error.clear()
     call self.infos.clear()
+    call self.clear_zones('CoqError')
     let s = self.states[self.focus]
     if !has_key(s, 'parent')
       call self.log('r', "rewind", "no parent for", self.focus)
@@ -1479,7 +1485,7 @@ endfunction
 function s:coq.to_cursor ()
   try
     call self.infos.clear()
-    call self.hl_error.clear()
+    call self.clear_zones('CoqError')
     let pos = getpos('.')[1:2]
     if s:pos_lt(self.states[self.focus].range[1], pos)
       " The current position is after the focus, add sentences.

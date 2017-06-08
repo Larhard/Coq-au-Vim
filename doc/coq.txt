@@ -235,6 +235,7 @@ display of a particular kind of information:
 letter  messages written in the debug window~
   e     protocol errors (unrecognized messages from coqtop)
   f     feedback items
+  h     interactive highlighting
   j     job management (starting and stopping coqtop)
   m     parsed messages from coqtop
   r     requests to coqtop and answers
