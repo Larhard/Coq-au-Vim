@@ -197,11 +197,19 @@ will set the option 'Printing Implicit' as boolean to true.
 =============================================================================
 4. Configuration                                                *coq-config*
 
-The interactive proof mode currently has no configuration options, except for
-enabling debugging, see |coq-debugging| for details.
+Options for the Coq interaction plugin are read from the buffer variable
+variable *b:coq_options* on startup. This variable is expected to be string,
+the presence of each letter below will activate the associated option. The
+default value is "h".
+
+letter  option~
+  h     highlight active regions of the buffer according to their state, the
+        way CoqIDE does, see |coq-highlight| for details
+  s     mark active regions using signs
 
 Folding can be activated by setting 'foldmethod' to expr, see |coq-folding|.
 
+                                                                *coq-highlight*
 The Coq highlight groups used for feedback from the Coq top-level are the
 following:
                                                                 *hl-CoqSent*
@@ -213,7 +221,7 @@ CoqChecked      regions that have been successfully processed
                                                                 *hl-CoqError*
 CoqError        errors detected by Coq
 
-By default CoqError is linked to Error and the other have a red-ish,
+By default CoqError is linked to Error and the others have a red-ish,
 yellow-ish or green-ish background.
 
 

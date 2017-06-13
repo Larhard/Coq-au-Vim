@@ -477,6 +477,9 @@ endfunction
 "   - status: either 'added' or 'checked'
 "   - messages: a list of messages received as feedback
 " For the initial state, the range is set to [[1,0], [1,0]].
+"
+" The options (as defined by b:coq_options) are stored in a field 'options'
+" which is a dictionary mapping each option letter to its boolean value.
 
 let s:coq = { }
 
@@ -887,7 +890,7 @@ function s:coq.return_init (return, d)
     \ 'status': 'checked',
     \ 'messages': [] }}
   let self.focus = a:d.state_id
-  let self.zones = []
+  call self.init_zones()
 
   call a:return(a:d)
 endfunction
@@ -1022,9 +1025,21 @@ endfunction
 " Its items are dictionaries with the following entries:
 "   - range: the range, in the format [[ls,cs], [le,cs]]
 "   - group: the highlighting group
-"   - match: the match ID as provided by matchadd()
+"   - match: the match ID as provided by matchadd() (if matches are used)
+"   - sign: the sign ID (if signs are used)
 " As an invariant, all zones are disjoint and adjacent zones have different
 " groups.
+
+function s:coq.init_zones ()
+  let self.zones = []
+  if self.options.s
+    let self.sign_id = 0
+    sign define CoqSent    text=.. texthl=CoqSent
+    sign define CoqAdded   text=-> texthl=CoqAdded
+    sign define CoqChecked text=>> texthl=CoqChecked
+    setlocal signcolumn=yes
+  endif
+endfunction
 
 " Clear the zones. The optional argument is group name, if it is used then
 " only the zones with this name will be cleared.
@@ -1057,24 +1072,44 @@ function s:coq.update_zone (zone, range, group)
   let [ls, cs] = a:range[0]
   let [le, ce] = a:range[1]
 
-  let pat = '\%' . ls . 'l'
-  if cs > 1
-    let pat .= '\%>' . (cs - 1) . 'c'
-  endif
-  if le > ls + 1
-    let pat .= '\|\%>' . ls . 'l\%<' . le . 'l'
-  endif
-  if le > ls
-    let pat .= '\|\%' . le . 'l'
-  endif
-  let pat .= '\%<' . (ce + 1) . 'c'
+  if self.options.h || self.options.s
+    if self.options.h
+      let pat = '\%' . ls . 'l'
+      if cs > 1
+        let pat .= '\%>' . (cs - 1) . 'c'
+      endif
+      if le > ls + 1
+        let pat .= '\|\%>' . ls . 'l\%<' . le . 'l'
+      endif
+      if le > ls
+        let pat .= '\|\%' . le . 'l'
+      endif
+      let pat .= '\%<' . (ce + 1) . 'c'
+    else
+      let pat = '\%' . le . 'l\%' . ce . 'c'
+    endif
 
-  if has_key(a:zone, 'match')
-    call matchdelete(a:zone.match)
-    let a:zone.match = matchadd(a:group, pat, 10, a:zone.match)
-  else
-    let a:zone.match = matchadd(a:group, pat)
+    if has_key(a:zone, 'match')
+      call matchdelete(a:zone.match)
+      let a:zone.match = matchadd(a:group, pat, 10, a:zone.match)
+    else
+      let a:zone.match = matchadd(a:group, pat)
+    endif
   endif
+
+  if self.options.s && a:group =~# 'Coq\(Sent\|Added\|Checked\)'
+    if has_key(a:zone, 'sign')
+      exe "sign unplace" a:zone.sign
+    else
+      let self.sign_id += 1
+      let a:zone.sign = self.sign_id
+    endif
+    exe printf("sign place %d line=%d name=%s buffer=%d",
+      \ a:zone.sign, le, a:group, self.buffer)
+    if !self.options.h
+    endif
+  endif
+
   let a:zone.range = a:range
   let a:zone.group = a:group
 
@@ -1085,7 +1120,12 @@ endfunction
 
 function s:coq.drop_zone (zone)
   call self.log('h', 'drop', a:zone)
-  call matchdelete(a:zone.match)
+  if has_key(a:zone, 'match')
+    call matchdelete(a:zone.match)
+  endif
+  if has_key(a:zone, 'sign')
+    exe "sign unplace" a:zone.sign
+  endif
 endfunction
 
 " Set the group for a given range. If the specified group is empty, the range
@@ -1273,7 +1313,14 @@ endfunction
 
 function s:coq.create ()
   let new = copy(self)
+  let new.buffer = bufnr("")
   let new.debugging = exists('b:coq_debug')
+
+  let options = exists('b:coq_options') ? b:coq_options : 'h'
+  let new.options = {}
+  for opt in ['h', 's']
+    let new.options[opt] = stridx(options, opt) >= 0
+  endfor
 
   let winid = win_getid()
   let new.goals = s:window.create("Goals", '', v:true)
