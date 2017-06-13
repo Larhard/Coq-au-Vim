@@ -777,7 +777,7 @@ endfunction
 " and compile date.
 
 function s:coq.call_about (return, dict)
-  call self.log('r', "call", "About")
+  call self.log('r', "call", "about")
   call self.call('About',
     \ ['unit', {}],
     \ a:return, a:dict,
@@ -800,7 +800,7 @@ endfunction
 
 function s:coq.call_add (range, edit_id, state_id, verbose, return, dict)
   let text = s:range_text(a:range)
-  call self.log('r', "call", "Add",
+  call self.log('r', "call", "add",
     \ a:range, a:edit_id, a:state_id, a:verbose, text)
   let self.last_pos = a:range[0]
   let a:dict.range = a:range
@@ -906,7 +906,7 @@ endfunction
 " there is no proof open.
 
 function s:coq.call_goal (return, dict)
-  call self.log('r', "call", "Goal")
+  call self.log('r', "call", "goal")
   call self.call('Goal',
     \ ['unit', {}],
     \ a:return, a:dict,
@@ -925,7 +925,7 @@ endfunction
 " is the identifier of the initial state.
 
 function s:coq.call_init (return, dict)
-  call self.log('r', "call", "Init")
+  call self.log('r', "call", "init")
   call self.call('Init',
     \ ['option', {'val': 'none'}],
     \ function(self.return_init, [a:return]), a:dict,
@@ -958,7 +958,7 @@ endfunction
 " Perform a query in some state.
 
 function s:coq.call_query (text, state_id, return, dict)
-  call self.log('r', "call", "Query", a:text, a:state_id)
+  call self.log('r', "call", "query", a:text, a:state_id)
   call self.call('Query',
     \ ['pair', {},
     \   ['string', {}, a:text],
@@ -973,7 +973,7 @@ endfunction
 " Terminate the Coq session.
 
 function s:coq.call_quit (return, dict)
-  call self.log('r', "call", "Quit")
+  call self.log('r', "call", "quit")
   call self.call('Quit',
     \ ['unit', {}],
     \ a:return, a:dict,
