@@ -899,6 +899,80 @@ function s:coq.return_edit_at (return, d)
   call a:return(a:d)
 endfunction
 
+" get_options() {{{3
+" -> {options: [{name, synchronous, deprecated, infos, type, value}, ...]}
+"
+" Get the state of all options in the current session.
+
+function s:coq.call_get_options (return, dict)
+  call self.log('r', "call", "get_options")
+  call self.call('GetOptions',
+    \ ['unit', {}],
+    \ function(self.return_get_options, [a:return]), a:dict,
+    \ [[['list', {}, '*options']], {}])
+endfunction
+
+function s:coq.return_get_options (return, d)
+  if !a:d.success
+    return a:return(a:d)
+  endif
+  let options = []
+  for item in a:d.options
+    let r = s:match(item, ['pair', {},
+      \ ['list', {}, '*name'],
+      \ ['option_state', {},
+      \   ['bool', {'val': '$synchronous'}],
+      \   ['bool', {'val': '$deprecated'}],
+      \   ['string', {}, '$info'],
+      \   ['?',
+      \     [['option_value', {'val': 'boolvalue'},
+      \       ['bool', {'val': '$value'}]],
+      \     {'type': 'bool'}],
+      \     [['option_value', {'val': 'intvalue'},
+      \       ['?',
+      \         [['option', {'val': 'none'}],
+      \         {'value': v:none}],
+      \         [['option', {'val': 'some'}, ['int', {}, '$value']],
+      \         {}]]],
+      \     {'type': 'int'}],
+      \     [['option_value', {'val': 'stringvalue'},
+      \       ['string', {}, '*value']],
+      \     {'type': 'string'}],
+      \     [['option_value', {'val': 'stringoptvalue'},
+      \       ['?',
+      \         [['option', {'val': 'none'}],
+      \         {'value': v:none}],
+      \         [['option', {'val': 'some'}, ['string', {}, '$value']],
+      \         {}]]],
+      \     {'type': 'stringopt'}]]]])
+
+    if type(r) ==# v:t_none
+      call self.protocol_error("Option state:", item)
+      continue
+    endif
+    let name = []
+    for word in r.name
+      let s = s:match(word, ['string', {}, '$word'])
+      if type(s) ==# v:t_none
+        call self.protocol_error("Option name word:", word)
+        continue
+      endif
+      call add(name, s.word)
+    endfor
+    let r.name = name
+    let r.synchronous = r.synchronous ==# 'true'
+    let r.deprecated = r.deprecated ==# 'true'
+    if r.type ==# 'bool'
+      let r.value = r.value ==# 'true'
+    elseif r.type ==# 'string'
+      let r.value = join(r.value)
+    endif
+    call add(options, r)
+  endfor
+  let a:d.options = options
+  call a:return(a:d)
+endfunction
+
 " goal() {{{3
 " -> {[current, background, shelved, abandoned]}
 "
@@ -976,6 +1050,48 @@ function s:coq.call_quit (return, dict)
   call self.log('r', "call", "quit")
   call self.call('Quit',
     \ ['unit', {}],
+    \ a:return, a:dict,
+    \ [[['unit', {}]], {}])
+endfunction
+
+" set_options([{name, type, value}, ...]) {{{3
+" -> {}
+"
+" Set some options in the Coq session. Each option is represented as a
+" dictionary with the following fields:
+"  - name : the option name as a list of strings
+"  - type : the type of the option, as a string among bool, int, string, stringopt
+"  - value : the requested value (v:none is mapped to none for option types)
+
+function s:coq.call_set_options (options, return, dict)
+  call self.log('r', "call", "set_options", a:options)
+  let items = []
+  for item in a:options
+    if item.type ==# 'bool'
+      let coded = ['bool', {'val': item.value ? 'true' : 'false'}]
+    elseif item.type ==# 'int'
+      if type(item.value) ==# v:t_none
+        let coded = ['option', {'val': 'none'}]
+      else
+        let coded = ['option', {'val': 'some'}, ['int', {}, item.value + 0]]
+      endif
+    elseif item.type ==# 'string'
+      let coded = ['string', {}, item.value]
+    elseif item.type ==# 'stringopt'
+      if type(item.value) ==# v:t_none
+        let coded = ['option', {'val': 'none'}]
+      else
+        let coded = ['option', {'val': 'some'}, ['string', {}, item.value]]
+      endif
+    else
+      throw "coqtop:call_set_options:invalid_arguments"
+    endif
+    call add(items, ['pair', {},
+      \ ['list', {}] + map(item.name, {i, s -> ['string', {}, s]}),
+      \ ['option_value', {'val': item.type . 'value'}, coded]])
+  endfor
+  call self.call('SetOptions',
+    \ ['list', {}] + items,
     \ a:return, a:dict,
     \ [[['unit', {}]], {}])
 endfunction
@@ -1474,6 +1590,106 @@ function! s:op_search_about (mode)
 endfunction
 
 
+" == Options == {{{2
+
+" When the argument list is empty, show the whole list of options in the info
+" window, in a minimalistic readable way, otherwise set some options.
+"
+" The arguments have the shape Option_Name:type=value where
+" the option name has spaces replaced by underscores, type is among bool, int,
+" string, stringopt, and the value is interpreted accordingly. If the type is
+" omitted, bool is assumed. If the value part is omitted, a default value is
+" used (true for bool, none for int and stringopt, empty for string).
+
+function s:coq.set_options (...)
+  try
+    if a:0 ==# 0
+      return self.call_get_options(self.show_options_return, {})
+    endif
+    let items = []
+    for arg in a:000
+      " Decompose the option into name, type and value
+
+      let p1 = stridx(arg, ':')
+      if p1 < 0
+        let p2 = stridx(arg, '=')
+        if p2 < 0
+          let opt = {'name': arg}
+        else
+          let opt = {'name': strpart(arg, 0, p2), 'value': strpart(arg, p2 + 1)}
+        endif
+      else
+        let opt = {'name': strpart(arg, 0, p1)}
+        let p2 = stridx(arg, '=', p1 + 1)
+        if p2 < 0
+          let opt.type = strpart(arg, p1 + 1)
+        else
+          let opt.type = strpart(arg, p1 + 1, p2 - p1 - 1)
+          let opt.value = strpart(arg, p2 + 1)
+        endif
+      endif
+
+      let opt.name = split(opt.name, '_')
+
+      " Fill in default types and values
+
+      if !has_key(opt, 'type')
+        let opt.type = 'bool'
+      endif
+      if opt.type ==# 'bool'
+        if !has_key(opt, 'value')
+          let opt.value = v:true
+        elseif index(['true', '1', 'yes'], opt.value) >= 0
+          let opt.value = v:true
+        elseif index(['false', '0', 'no'], opt.value) >= 0
+          let opt.value = v:false
+        else
+          throw "coqtop:set_options:invalid_arguments"
+        endif
+      elseif opt.type ==# 'int' || opt.type ==# 'stringopt'
+        if !has_key(opt, 'value')
+          let opt.value = v:none
+        endif
+      elseif opt.type ==# 'string'
+        if !has_key(opt, 'value')
+          let opt.value = ""
+        endif
+      else
+        throw "coqtop:set_options:invalid_arguments"
+      endif
+
+      call add(items, opt)
+    endfor
+
+    call self.call_set_options(items, self.set_options_return, {})
+  endtry
+endfunction
+
+function s:coq.show_options_return (d)
+  if a:d.success
+    let lines = []
+    for opt in a:d.options
+      call add(lines, printf("%s : %s = %s [%s%s] %s",
+        \ join(opt.name), opt.type, string(opt.value),
+        \ (opt.synchronous ? 'S' : ''), (opt.deprecated ? 'D' : ''),
+        \ opt.info))
+    endfor
+    call self.infos.clear()
+    call self.infos.write(lines)
+  else
+    call self.infos.write(s:richpp_format(a:d.message))
+  endif
+endfunction
+
+function s:coq.set_options_return (d)
+  if a:d.success
+    call self.show_goals()
+  else
+    call self.infos.write(s:richpp_format(a:d.message))
+  endif
+endfunction
+
+
 " == Commands and mappings == {{{2
 
 function! coqtop#Start ()
@@ -1483,6 +1699,7 @@ function! coqtop#Start ()
   command! -buffer CoqRewind :call b:coq.rewind()
   command! -buffer CoqToCursor :call b:coq.to_cursor()
   command! -buffer -nargs=1 CoqQuery :call b:coq.query("<args>")
+  command! -buffer -nargs=* CoqSet :call b:coq.set_options(<f-args>)
 
   nnoremap <buffer> <silent> <C-Down>  :CoqNext<CR>
   nnoremap <buffer> <silent> <C-Up>    :CoqRewind<CR>
@@ -1515,6 +1732,7 @@ function! coqtop#Quit ()
   delcommand CoqRewind
   delcommand CoqToCursor
   delcommand CoqQuery
+  delcommand CoqSet
 
   nunmap <buffer> <C-Down>
   nunmap <buffer> <C-Right>

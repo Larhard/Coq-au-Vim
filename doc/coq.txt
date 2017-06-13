@@ -15,6 +15,7 @@ Contents
         3. Interactive theorem proving ............... |coq-ide|
             3.1. Commands ............................ |coq-commands|
             3.2. Key mappings ........................ |coq-mappings|
+            3.3. Coq interpreter options ............. |coq-options|
         4. Configuration ............................. |coq-config|
         5. Contributing .............................. |coq-contributing|
         6. Credits ................................... |coq-credits|
@@ -116,6 +117,11 @@ are defined when starting a session and undefined when closing a session.
 :CoqQuery {text}
                 Send the {text} as a query to Coq in the current state. The
                 {text} must be a complete sentence.
+                                                                *:CoqSet*
+:CoqSet {options}
+                With no arguments, display the list of all options with their
+                values in the current session. With arguments, set options in
+                the Coq session. See |coq-options| for details.
 
 
 -----------------------------------------------------------------------------
@@ -157,6 +163,35 @@ parenthesis.
 <localleader>s{motion}
 {Visual}<localleader>s
                 Send a query "SearchAbout {text}" for the selected text.
+
+
+-----------------------------------------------------------------------------
+3.3. Coq interpreter options                                    *coq-options*
+
+The Coq interpreter has a number of options that define how it interacts. Some
+can set in proof scripts while others must be set in interactive sessions. The
+command |:CoqSet| can be used to query and set such options.
+
+Options are specified as
+
+        Name_Of_Option:type=value
+
+Coq options have spaces but in Coq-au-vim these are turned to underscores to
+make it easier to enter them. The following types are recognised:
+
+        type        default   notes~
+        bool        true      accepted value: true,yes,1,false,no,0
+        int         None      invalid values are turned to 0
+        string      empty
+        stringopt   None
+
+If the value is omitted, then the default value is used (this is the only way
+to use the None values). If the type is omitted, bool is used. Hence, if both
+the type and value are omitted, the boolean true is used. For instance
+
+        :CoqSet Printing_Implicit
+
+will set the option 'Printing Implicit' as boolean to true.
 
 
 =============================================================================

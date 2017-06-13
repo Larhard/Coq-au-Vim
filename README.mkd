@@ -56,7 +56,8 @@ commands are provided:
 - `:CoqNext` sends the next sentence to Coq,
 - `:CoqRewind` rewinds by one sentence,
 - `:CoqToCursor` sends or rewinds up to the current cursor position,
-- `:CoqQuery {text}` sends a query in the current state.
+- `:CoqQuery {text}` sends a query in the current state,
+- `:CoqSet {options}` sets interpreter options.
 
 Key mappings compatible with CoqIDE are installed by the `:CoqStart`
 command.
