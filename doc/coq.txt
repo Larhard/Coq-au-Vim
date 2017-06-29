@@ -197,8 +197,8 @@ will set the option 'Printing Implicit' as boolean to true.
 =============================================================================
 4. Configuration                                                *coq-config*
 
-Options for the Coq interaction plugin are read from the buffer variable
-variable *b:coq_options* on startup. This variable is expected to be string,
+Options for the Coq interaction plugin are read from the global variable
+variable *g:coq_options* on startup. This variable is expected to be string,
 the presence of each letter below will activate the associated option. The
 default value is "h".
 
@@ -235,8 +235,8 @@ The public Git repository of the project can be found at
 
                                                                 *coq-debugging*
 The Coq interaction plugin can be run in debugging mode by setting the
-*b:coq_debug* variable. In this case, an extra window will be open on startup
-and debugging messages will be appended there. The *b:coq_debug* variable is
+*g:coq_debug* variable. In this case, an extra window will be open on startup
+and debugging messages will be appended there. The *g:coq_debug* variable is
 expected to be string, the presence of each letter below will trigger the
 display of a particular kind of information:
 

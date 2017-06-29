@@ -478,7 +478,7 @@ endfunction
 "   - messages: a list of messages received as feedback
 " For the initial state, the range is set to [[1,0], [1,0]].
 "
-" The options (as defined by b:coq_options) are stored in a field 'options'
+" The options (as defined by g:coq_options) are stored in a field 'options'
 " which is a dictionary mapping each option letter to its boolean value.
 
 let s:coq = { }
@@ -1314,9 +1314,9 @@ endfunction
 function s:coq.create ()
   let new = copy(self)
   let new.buffer = bufnr("")
-  let new.debugging = exists('b:coq_debug')
+  let new.debugging = exists('g:coq_debug')
 
-  let options = exists('b:coq_options') ? b:coq_options : 'h'
+  let options = exists('g:coq_options') ? g:coq_options : 'h'
   let new.options = {}
   for opt in ['h', 's']
     let new.options[opt] = stridx(options, opt) >= 0
@@ -1376,10 +1376,10 @@ endfunction
 " Log function when debugging.
 
 function s:coq.log_debug (kind, head, ...)
-  if stridx(b:coq_debug, a:kind) < 0
+  if stridx(g:coq_debug, a:kind) < 0
     return
   endif
-  if stridx(b:coq_debug, 't') >= 0
+  if stridx(g:coq_debug, 't') >= 0
     let s = strftime('[%H:%M:%S] ')
   else
     let s = ''
