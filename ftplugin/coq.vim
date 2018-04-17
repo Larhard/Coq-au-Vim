@@ -1,9 +1,9 @@
 " = Motions = {{{1
 
 " Search forward for a pattern, skipping comments. The return value is the
-" number of the first maching sub-expression (as for the Vim function search()
-" with the 'p' option). The second argument indicates whether a match at the
-" current position is accepted.
+" number of the first matching sub-expression (as for the Vim function
+" search() with the 'p' option). The second argument indicates whether a match
+" at the current position is accepted.
 
 function! s:SearchForward (pattern, immediate)
   let immediate = a:immediate
@@ -39,9 +39,9 @@ function! s:SearchForward (pattern, immediate)
 endfunction
 
 " Search backward for a pattern, skipping comments. The return value is the
-" number of the first maching sub-expression (as for the Vim function search()
-" with the 'p' option). The second argument indicates whether a match at the
-" current position is accepted.
+" number of the first matching sub-expression (as for the Vim function
+" search() with the 'p' option). The second argument indicates whether a match
+" at the current position is accepted.
 
 function! s:SearchBackward (pattern, immediate)
   let immediate = a:immediate
@@ -162,7 +162,7 @@ function! CoqNextSentence (count)
   return s:SearchForward('\S', v:false) !=# 0
 endfunction
 
-" Move the the beginning of the current sentence, or the previous one if the
+" Move the beginning of the current sentence, or the previous one if the
 " cursor is already at the beginning of a sentence. The 'count' argument
 " indicates how many sentences to advance. Return v:true if a proper previous
 " sentence was found, v:false otherwise.

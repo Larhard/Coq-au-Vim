@@ -27,7 +27,7 @@ This plugin provides a environment for working with the Coq theorem prover.
 It provides |filetype| support for editing Coq source files and a mode for
 interactive proof development, in the style of the standard Coq IDE.
 
-The interactive mode requires Vim version 8 and Coq version 8.6.
+The interactive mode requires Vim version 8 and Coq version 8.6 or 8.7.
 
 
 =============================================================================

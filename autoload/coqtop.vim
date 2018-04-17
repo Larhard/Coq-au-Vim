@@ -319,7 +319,7 @@ endfunction
 "   - a dictionary is matched key by key, each key in the pattern must be
 "     present in the value (except with '?name' patterns) but other keys may
 "     be present too,
-"   - a list ['?'; choices] is interpreted as a choice: the liste 'choices'
+"   - a list ['?'; choices] is interpreted as a choice: the list 'choices'
 "     consists of pairs [pattern,dict] where 'pattern' is tried against the
 "     value and 'dict' contains extra items for the result value; the first
 "     match in the list of choices will provide the result.
@@ -434,7 +434,7 @@ function! s:match (value, pattern)
 endfunction
 
 " Match a value against a list of patterns and return the dictionary for the
-" forst match. The arguments 'patterns' is a list of pairs [pattern, dict]
+" first match. The arguments 'patterns' is a list of pairs [pattern, dict]
 " where 'pattern' is used as for the 'Match' function and 'dict' is a
 " dictionary of extra items added to the return value in case of match. An
 " optional third argument specifies extra items to add in the return value.
@@ -459,7 +459,7 @@ endfunction
 " Everything related to Coq interaction is encapsulated in an object called
 " b:coq. This is a dictionary that contains all the relevant state as well as
 " methods for interaction with coqtop (using Vim's mechanism of dictionary
-" functions). The script object s:coq is a template that gets instanciated
+" functions). The script object s:coq is a template that gets instantiated
 " as a buffer object b:coq when a session is started, then everything goes
 " through this buffer-local object.
 "
@@ -636,17 +636,20 @@ endfunction
 " For each request, we provide a function that expects an argument for each
 " field in the request, plus a callback (named 'return') and a dictionary
 " 'dict' of extra parameters. When an answer is received, 'return' is called
-" with a dictionary containg the conents of 'dict' plus the fields of the
-" answer, always with at leas a field 'success' that indicates whether the
-" call succeeded.
+" with a dictionary containing the contents of 'dict' plus the fields of the
+" answer, always with at least a field 'success' that indicates whether the
+" call succeeded. When the call failed, the dictionary contains a field
+" 'message' with the error message.
 "
 " We provide one function per call in the Coq API, on return the state
 " representation is updated.
 
+let s:supported_protocols = ['20150913', '20170413']
+
 " about() {{{3
 " -> {version, protocol, release, compile}
 "
-" Get information avout Coq: version number, protocol version, release date
+" Get information about Coq: version number, protocol version, release date
 " and compile date.
 
 function s:coq.call_about (return, dict)
@@ -895,19 +898,38 @@ function s:coq.return_init (return, d)
   call a:return(a:d)
 endfunction
 
-" query(text, state_id) {{{3
-" -> {message}
+" query(route_id, text, state_id) {{{3
+" -> {}
 "
-" Perform a query in some state.
+" Perform a query in some state and display the answer.
 
-function s:coq.call_query (text, state_id, return, dict)
-  call self.log('r', "call", "query", a:text, a:state_id)
-  call self.call('Query',
-    \ ['pair', {},
-    \   ['string', {}, a:text],
-    \   ['state_id', {'val': a:state_id}]],
-    \ a:return, a:dict,
-    \ [[['string', {}, '*message']], {}])
+function s:coq.call_query (route_id, text, state_id, return, dict)
+  call self.log('r', "call", "query", a:route_id, a:text, a:state_id)
+  if self.protocol >= '20170413'
+    call self.call('Query',
+      \ ['pair', {},
+      \   ['route_id', {'val': a:route_id}],
+      \   ['pair', {},
+      \     ['string', {}, a:text],
+      \     ['state_id', {'val': a:state_id}]]],
+      \ a:return, a:dict,
+      \ [[['unit', {}]], {}])
+
+  else
+    call self.call('Query',
+      \ ['pair', {},
+      \   ['string', {}, a:text],
+      \   ['state_id', {'val': a:state_id}]],
+      \ function(self.return_query, [a:return]), a:dict,
+      \ [[['string', {}, '*message']], {}])
+  endif
+endfunction
+
+function s:coq.return_query (return, d)
+  if a:d.success
+    call self.infos.write(a:d.message)
+  endif
+  call a:return(a:d)
 endfunction
 
 " quit() {{{3
@@ -969,10 +991,6 @@ endfunction
 " == Handling feedback == {{{2
 
 function s:coq.feedback(state_id, kind, content)
-  if !has_key(self.states, a:state_id)
-    return self.log('e', 'feedback', 'feedback for unknown state', a:state_id)
-  endif
-
   let r = s:match_first([a:kind, a:content], [
     \ [['processed', []], {}],
     \ [['complete', []], {}],
@@ -1011,7 +1029,14 @@ function s:coq.feedback(state_id, kind, content)
       return self.protocol_error("feedback message", a:content)
     endif
     call self.log('f', 'message', a:state_id, r)
-    call add(self.states[a:state_id].messages, r)
+    if a:state_id ==# self.focus || !has_key(self.states, a:state_id)
+      " The state_id may be unknown in the case of feedback received between
+      " an Add query and its successful answer, then the feedback is shown as
+      " if it were for the current state.
+      call self.infos.write(s:richpp_format(r.message))
+    else
+      call add(self.states[a:state_id].messages, r)
+    endif
 
   else
     call self.log('f', a:kind, a:state_id, a:content)
@@ -1210,7 +1235,7 @@ endfunction
 
 let s:window = {}
 
-" Create a new window with a new bufffer using a given name and filetype. The
+" Create a new window with a new buffer using a given name and filetype. The
 " buffer will have no file associated to it, a number may be added to the
 " buffer name to ensure it is unique. The third argument specifies whether
 " splitting should be vertical or horizontal.
@@ -1338,10 +1363,11 @@ function s:coq.create ()
 endfunction
 
 function s:coq.start_version (d)
-  if a:d.protocol !=# '20150913'
+  if index(s:supported_protocols, a:d.protocol) < 0
     return self.infos.write("Unsupported Coq protocol version: "
       \ . a:d.protocol)
   endif
+  let self.protocol = a:d.protocol
   call self.infos.write("Coq version "
     \ . a:d.version . " (" . a:d.release . ") started.")
   call self.call_init(self.start_state, {})
@@ -1593,14 +1619,12 @@ endfunction
 function s:coq.query (text)
   try
     call self.infos.clear()
-    call self.call_query(a:text, self.focus, self.query_return, {})
+    call self.call_query(0, a:text, self.focus, self.query_return, {})
   endtry
 endfunction
 
 function s:coq.query_return (d)
-  if a:d.success
-    call self.infos.write(a:d.message)
-  else
+  if !a:d.success
     call self.infos.write(s:richpp_format(a:d.message))
   endif
 endfunction
