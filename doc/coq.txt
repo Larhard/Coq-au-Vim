@@ -233,10 +233,10 @@ The public Git repository of the project can be found at
 
         https://git.framasoft.org/manu/coq-au-vim
 
-                                                                *coq-debugging*
+                                                     *coq-debugging* *g:coq_debug*
 The Coq interaction plugin can be run in debugging mode by setting the
-*g:coq_debug* variable. In this case, an extra window will be open on startup
-and debugging messages will be appended there. The *g:coq_debug* variable is
+|g:coq_debug| variable. In this case, an extra window will be open on startup
+and debugging messages will be appended there. The |g:coq_debug| variable is
 expected to be string, the presence of each letter below will trigger the
 display of a particular kind of information:
 
