@@ -113,7 +113,7 @@ endfunction
 function! CoqNextPeriod (immediate)
   let immediate = a:immediate
   while v:true
-    let result = s:SearchForward('\.\_s\@=\|\([-+*{}]\)', immediate)
+    let result = s:SearchForward('\.\@<!\.\_s\@=\|\([-+*{}]\)', immediate)
     if result ==# 2
       " A potential bullet was found, check it.
       if s:IsBeginningOfSentence(v:false)
@@ -132,7 +132,7 @@ endfunction
 function! CoqPreviousPeriod (immediate)
   let immediate = a:immediate
   while v:true
-    let result = s:SearchBackward('\.\_s\|\([-+*{}]\)', immediate)
+    let result = s:SearchBackward('\.\@<!\.\_s\|\([-+*{}]\)', immediate)
     if result ==# 2
       " A potential bullet was found, check it.
       if s:IsBeginningOfSentence(v:false)
