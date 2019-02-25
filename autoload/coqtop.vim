@@ -499,13 +499,48 @@ endfunction
 
 " Start the job for coqtop.
 
+" When starting the toplevel, the actual command to run is not always the
+" same, depending on versions: starting with Coq 8.9.0, we have to call
+" 'coqidetop', while prior versions required 'coqtop -ideslave'. We handle
+" this by trying each command successively until one succeeds. We detect
+" success by checking if a call to the 'About' command did succeed before the
+" job terminated.
+
 function s:coq.start_job ()
-  if has_key(self, 'job') && !empty(self.job)
-    call self.stop_job()
+  let self.job_commands = [ 'coqidetop', 'coqtop -ideslave' ]
+  call self.try_start(v:none, v:none)
+endfunction
+
+function s:coq.try_start (job, status)
+  if has_key(self, 'protocol')
+    " The job exited after successful initialisation.
+    return
   endif
-  let cmd = 'coqtop -ideslave -main-channel stdfds -async-proofs on'
+
+  if has_key(self, 'job')
+    " We are re-starting a job.
+    if empty(self.job)
+      call self.log('j', "failed")
+    else
+      call self.stop_job()
+    endif
+  endif
+
+  if empty(self.job_commands)
+    " All possible commands were tried without success.
+    call self.goals.close()
+    call self.infos.close()
+    echohl WarningMsg
+    echomsg "No Coq toplevel was found"
+    echohl None
+    return
+  endif
+
+  " Try to start using the next potential command.
+  let cmd = remove(self.job_commands, 0) . ' -main-channel stdfds -async-proofs on'
   call self.log('j', "start", cmd)
-  let self.job = job_start(cmd, {'mode': 'raw', 'out_cb': self.callback})
+  let self.job = job_start(cmd,
+    \ {'mode': 'raw', 'out_cb': self.callback, 'exit_cb': self.try_start})
   let self.channel = job_getchannel(self.job)
   call self.log('j', "started", self.job, self.channel)
   let self.xml_stack = []

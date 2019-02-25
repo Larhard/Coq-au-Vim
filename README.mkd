@@ -12,7 +12,7 @@ Requirements
 Coq-au-Vim requires
 
 - Vim version 8
-- Coq version 8.6 or 8.7
+- Coq version 8.6 or above
 
 Prior versions of Vim will not be supported because version 8 is the one that
 introduces asynchronous communication with external tools. Prior versions of
