@@ -545,6 +545,10 @@ function s:coq.try_start (job, status)
   call self.log('j', "started", self.job, self.channel)
   let self.xml_stack = []
   let self.return_queue = []
+  try
+    call self.call_about(self.start_version, {})
+  catch /.*write failed.*/
+  endtry
 endfunction
 
 " Stop the running job.
@@ -1374,6 +1378,7 @@ endfunction
 function s:coq.create ()
   let new = copy(self)
   let new.buffer = bufnr("")
+  let new.started = 0
   let new.debugging = exists('g:coq_debug')
 
   let options = exists('g:coq_options') ? g:coq_options : 'h'
@@ -1393,11 +1398,16 @@ function s:coq.create ()
   call win_gotoid(winid)
 
   call new.start_job()
-  call new.call_about(new.start_version, {})
   return new
 endfunction
 
 function s:coq.start_version (d)
+  if self.started > 0
+    call self.log('j', "start", "already started")
+    return
+  endif
+  let self.started = 1
+
   if index(s:supported_protocols, a:d.protocol) < 0
     return self.infos.write("Unsupported Coq protocol version: "
       \ . a:d.protocol)
