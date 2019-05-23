@@ -1388,8 +1388,8 @@ function s:coq.create ()
   endfor
 
   let winid = win_getid()
-  let new.goals = s:window.create("Goals", '', v:true)
-  let new.infos = s:window.create("Infos", '', v:false)
+  let new.goals = s:window.create("Goals", 'coq_output', v:true)
+  let new.infos = s:window.create("Infos", 'coq_output', v:false)
   if new.debugging
     let new.debug = s:window.create("Log", '', v:false)
     syntax region ErrorMsg start="^e|" end="$"
